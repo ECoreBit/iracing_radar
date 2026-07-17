@@ -1,16 +1,47 @@
 ﻿# iRacing Radar for SimHub
 
-一个用于 iRacing 的 SimHub 车辆雷达覆盖层。下载编译好的发布包后，只需要把 DLL、配置文件和 overlay 文件复制到 SimHub 指定目录即可使用。
+[中文](#readme-zh) | [English](#readme-en)
 
-An iRacing radar overlay for SimHub. Download the prebuilt release package, copy the DLL, settings file, and overlay files into the SimHub folders, then enable the overlay in SimHub.
-
-## 效果预览 / Preview
-
-![Radar preview 1](docs/radar-preview.png)
-
-![Radar preview 2](docs/radar-preview2.png)
+<a id="readme-zh"></a>
 
 ## 中文说明
+
+一个用于 iRacing 的 SimHub 车辆雷达覆盖层。下载编译好的发布包后，只需要把 DLL、配置文件和 overlay 文件复制到 SimHub 指定目录即可使用。
+
+### 雷达状态说明
+
+雷达中央的灰色区域代表本车，上方代表车头方向，下方代表车尾方向。以下四张图按顺序展示一辆对手车辆从后方靠近、并排超车，再到前方远离时的雷达画面。
+
+#### 1. 后方远处靠近
+
+![后方车辆从远处靠近](docs/radar-state-approaching-far.png)
+
+雷达下方出现绿色弧形，表示后方提示范围内有车。距离和时差显示为红色时，表示后车正在接近。
+
+#### 2. 车辆逼近
+
+![后方车辆逼近](docs/radar-state-closing.png)
+
+后车靠近时，下方提示逐渐变为红色扇形。车辆越近，红色区域越宽、颜色越明显。
+
+#### 3. 车辆并排
+
+![车辆在本车侧面并排](docs/radar-state-side-by-side.png)
+
+车辆并排时，本车左侧或右侧会出现红色车辆标记。标记偏上表示对手更靠近本车车头，偏下表示更靠近本车车尾。并排状态不显示距离和时差。
+
+#### 4. 超车后远离
+
+![对手完成超车后从前方远离](docs/radar-state-separating.png)
+
+对手完成超车后，提示出现在雷达上方。距离和时差显示为绿色时，表示前车正在远离。随着距离增大，前方红色提示变为绿色弧形，最后从雷达上消失。
+
+### 其他视觉状态
+
+- 附近没有车辆时，整个雷达自动隐藏。
+- 前后车辆距离小于 2.5 米时，距离和时差文字隐藏，图形警示继续显示。
+- 红色文字表示车辆正在靠近，绿色文字表示车辆正在远离。
+- 侧面车辆只显示红色位置标记，不显示文字数值。
 
 ### 需要复制哪些文件
 
@@ -111,7 +142,46 @@ HideDelaySeconds=0.8
 
 附近没有车辆后，雷达延迟隐藏的时间，单位是秒。数值越大，雷达消失越慢。
 
+<a id="readme-en"></a>
+
 ## English
+
+An iRacing radar overlay for SimHub. Download the prebuilt release package, copy the DLL, settings file, and overlay files into the SimHub folders, then enable the overlay in SimHub.
+
+### Radar states
+
+The grey area in the centre represents your car. The top is the front and the bottom is the rear. The following images show an opponent approaching from behind, moving alongside, and pulling away in front.
+
+#### 1. Approaching from behind
+
+![Opponent approaching from behind at a distance](docs/radar-state-approaching-far.png)
+
+A green arc appears below the radar when a car is within the rear warning area. Red distance and time text indicates that the car behind is getting closer.
+
+#### 2. Close proximity
+
+![Opponent closing in behind](docs/radar-state-closing.png)
+
+As the rear car gets closer, the lower warning changes into a red sector. The closer the car is, the wider and more visible the red area becomes.
+
+#### 3. Side by side
+
+![Opponent alongside the player](docs/radar-state-side-by-side.png)
+
+When a car is alongside, a red vehicle marker appears on the corresponding side. A higher marker means the opponent is closer to your front; a lower marker means it is closer to your rear. Distance and time values are hidden while side by side.
+
+#### 4. Moving away after the pass
+
+![Opponent moving away in front](docs/radar-state-separating.png)
+
+After the opponent passes, the warning appears above the radar. Green distance and time text indicates that the car ahead is moving away. As the gap increases, the front red warning changes into a green arc and eventually disappears.
+
+### Other visual states
+
+- The entire radar hides when no nearby cars are present.
+- Below a 2.5-metre front or rear gap, the text values are hidden while the graphical warning remains visible.
+- Red text means the car is approaching; green text means it is moving away.
+- Side-by-side cars use red position markers without text values.
 
 ### Files to copy
 
