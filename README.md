@@ -8,6 +8,14 @@
 
 一个用于 iRacing 的 SimHub 车辆雷达覆盖层。下载编译好的发布包后，只需要把 DLL、配置文件和 overlay 文件复制到 SimHub 指定目录即可使用。
 
+> **重要提示：** 当车辆位于本车侧面时，雷达只能显示车辆在左侧还是右侧，以及它相对本车偏前或偏后；**无法提供两车之间的实际横向距离**。侧面红色标记的位置和间隔不能作为横向间距或碰撞余量使用。
+
+### 演示视频
+
+[![iRacing 车辆雷达演示视频](https://img.youtube.com/vi/-9Pv4CWri6g/maxresdefault.jpg)](https://youtu.be/-9Pv4CWri6g)
+
+点击上方图片在 YouTube 观看雷达演示。
+
 ### 雷达状态说明
 
 雷达中央的灰色区域代表本车，上方代表车头方向，下方代表车尾方向。以下四张图按顺序展示一辆对手车辆从后方靠近、并排超车，再到前方远离时的雷达画面。
@@ -147,6 +155,14 @@ HideDelaySeconds=0.8
 ## English
 
 An iRacing radar overlay for SimHub. Download the prebuilt release package, copy the DLL, settings file, and overlay files into the SimHub folders, then enable the overlay in SimHub.
+
+> **Important:** When a car is alongside, the radar can only show whether it is on the left or right and whether it is relatively ahead or behind. It **cannot provide the actual lateral distance between the two cars**. Do not use the position or spacing of the red side marker as a measure of lateral clearance or collision margin.
+
+### Demo video
+
+[![iRacing Radar demo video](https://img.youtube.com/vi/-9Pv4CWri6g/maxresdefault.jpg)](https://youtu.be/-9Pv4CWri6g)
+
+Click the image above to watch the radar demonstration on YouTube.
 
 ### Radar states
 
