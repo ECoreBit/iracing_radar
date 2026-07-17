@@ -1,0 +1,521 @@
+﻿using GameReaderCommon;
+using SimHub.Plugins;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+
+namespace User.IRacingRadarPlugin
+{
+    [PluginName("iRacing Radar")]
+    [PluginAuthor("ECoreBit")]
+    [PluginDescription("A compact left/right proximity radar for iRacing overlays.")]
+    public sealed class IRacingRadarPlugin : IPlugin, IDataPlugin
+    {
+        private const double HoldSeconds = 0.45;
+        private const double PositionRangeMeters = 18.0;
+        private const double ColorTransitionMeters = 2.5;
+        private readonly Stopwatch clock = Stopwatch.StartNew();
+        private SideState left = SideState.Hidden;
+        private SideState right = SideState.Hidden;
+        private bool frontVisible;
+        private bool rearVisible;
+        private bool frontFarVisible;
+        private bool rearFarVisible;
+        private double leftVisualOpacity;
+        private double rightVisualOpacity;
+        private double lastSideVisualUpdate;
+        private double frontMeters;
+        private double rearMeters;
+        private double frontSeconds;
+        private double rearSeconds;
+        private double frontProximityOpacity;
+        private double rearProximityOpacity;
+        private double frontNearProgress;
+        private double rearNearProgress;
+        private double frontNearBlend;
+        private double rearNearBlend;
+        private double lastProgressUpdate;
+        private readonly string settingsPath = ResolveSettingsPath();
+        private RadarSettings settings = RadarSettings.Default();
+        private double nextSettingsRefresh;
+        private double radarHoldUntil;
+        private bool radarVisible;
+
+        public PluginManager PluginManager { get; set; }
+
+        private static string ResolveSettingsPath()
+        {
+            string dllDirectory = System.IO.Path.GetDirectoryName(typeof(IRacingRadarPlugin).Assembly.Location);
+            string dllLocal = System.IO.Path.Combine(dllDirectory ?? string.Empty, "IRacingRadar.settings.ini");
+            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string preferred = System.IO.Path.Combine(documents, "iRacingRadar", "IRacingRadar.settings.ini");
+            string legacy = System.IO.Path.Combine(documents, "iraing_Rader", "IRacingRadar.settings.ini");
+
+            if (System.IO.File.Exists(dllLocal)) return dllLocal;
+            if (System.IO.File.Exists(preferred)) return preferred;
+            if (System.IO.File.Exists(legacy)) return legacy;
+            return dllLocal;
+        }
+
+        public void Init(PluginManager pluginManager)
+        {
+            PluginManager = pluginManager;
+            settings = RadarSettings.Load(settingsPath);
+            Add("Connected", false, "True while iRacing telemetry is active.");
+            Add("LeftVisible", false, "Show the left opponent block.");
+            Add("RightVisible", false, "Show the right opponent block.");
+            Add("LeftVisualOpacity", 0.0, "Smoothed opacity for the real left-side alert.");
+            Add("RightVisualOpacity", 0.0, "Smoothed opacity for the real right-side alert.");
+            Add("LeftTop", RadarMath.CenterTop, "Vertical overlay position of the left opponent block.");
+            Add("RightTop", RadarMath.CenterTop, "Vertical overlay position of the right opponent block.");
+            Add("LeftRelativeMeters", 0.0, "Signed fore/aft distance of the left-side opponent.");
+            Add("RightRelativeMeters", 0.0, "Signed fore/aft distance of the right-side opponent.");
+            Add("FrontVisible", false, "Show the nearest opponent ahead.");
+            Add("RearVisible", false, "Show the nearest opponent behind.");
+            Add("FrontFarVisible", false, "Show the green far-distance front semicircle.");
+            Add("RearFarVisible", false, "Show the green far-distance rear semicircle.");
+            Add("FrontTop", 35.0, "Vertical position of the nearest opponent ahead.");
+            Add("RearTop", 151.0, "Vertical position of the nearest opponent behind.");
+            Add("FrontRelativeMeters", 0.0, "Signed distance to the nearest opponent ahead.");
+            Add("RearRelativeMeters", 0.0, "Signed distance to the nearest opponent behind.");
+            Add("FrontRelativeSeconds", 0.0, "Time gap to the nearest opponent ahead.");
+            Add("RearRelativeSeconds", 0.0, "Time gap to the nearest opponent behind.");
+            Add("FrontDisplayText", "--", "Configured front distance/time label.");
+            Add("RearDisplayText", "--", "Configured rear distance/time label.");
+            Add("FrontProximityOpacity", 0.0, "Active-trigger opacity for front alerts.");
+            Add("RearProximityOpacity", 0.0, "Active-trigger opacity for rear alerts.");
+            Add("FrontNearProgress", 0.0, "Front red fan expansion from 0 to 100.");
+            Add("RearNearProgress", 0.0, "Rear red fan expansion from 0 to 100.");
+            Add("FrontNearBlend", 0.0, "Front red/green transition blend.");
+            Add("RearNearBlend", 0.0, "Rear red/green transition blend.");
+            Add("LabelFontSize", settings.LabelFontSize, "Configured front/rear label font size.");
+            Add("DisplayMode", settings.DisplayMode, "Distance, Time, or Both." );
+            Add("RadarVisible", false, "True while at least one opponent is inside the configured radar range.");
+            Add("RadarRangeMeters", settings.RadarRangeMeters, "Configured distance alert threshold.");
+            Add("TimeAlertSeconds", settings.TimeAlertSeconds, "Configured time-gap alert threshold.");
+            Add("NearDistanceMeters", settings.NearDistanceMeters, "Configured red marker distance.");
+            Add("OverlayOpacity", settings.OverlayOpacity, "Configured overlay opacity percentage.");
+            Add("SettingsPath", settingsPath, "Path to the live radar settings file.");
+            Add("RawCarLeftRight", 0, "Raw iRacing CarLeftRight value.");
+            Add("StatusText", "waiting for iRacing", "Radar diagnostic state.");
+            SimHub.Logging.Current.Info("iRacing Radar plugin started");
+        }
+
+        public void DataUpdate(PluginManager pluginManager, ref GameData data)
+        {
+            try
+            {
+                StatusDataBase telemetry = data.NewData;
+                bool connected = data.GameRunning && telemetry != null;
+                int nativeLeftRight = ReadNativeLeftRight();
+                double now = clock.Elapsed.TotalSeconds;
+                RefreshSettings(now);
+
+                if (!connected)
+                {
+                    left = SideState.Hidden;
+                    right = SideState.Hidden;
+                    frontVisible = false;
+                    rearVisible = false;
+                    frontFarVisible = false;
+                    rearFarVisible = false;
+                    leftVisualOpacity = 0.0;
+                    rightVisualOpacity = 0.0;
+                    lastSideVisualUpdate = 0.0;
+                    frontMeters = double.NaN;
+                    rearMeters = double.NaN;
+                    frontSeconds = double.NaN;
+                    rearSeconds = double.NaN;
+                    frontProximityOpacity = 0.0;
+                    rearProximityOpacity = 0.0;
+                    frontNearProgress = 0.0;
+                    rearNearProgress = 0.0;
+                    frontNearBlend = 0.0;
+                    rearNearBlend = 0.0;
+                    lastProgressUpdate = 0.0;
+                    radarVisible = false;
+                    Publish(false, nativeLeftRight);
+                    return;
+                }
+                bool leftDetected = telemetry.SpotterCarLeft != 0 ||
+                    nativeLeftRight == 2 || nativeLeftRight == 4 || nativeLeftRight == 5;
+                bool rightDetected = telemetry.SpotterCarRight != 0 ||
+                    nativeLeftRight == 3 || nativeLeftRight == 4 || nativeLeftRight == 6;
+                double sideVisualElapsed = lastSideVisualUpdate > 0.0 ? now - lastSideVisualUpdate : 0.016;
+                lastSideVisualUpdate = now;
+                leftVisualOpacity = SmoothSideOpacity(leftVisualOpacity, leftDetected ? 100.0 : 0.0, sideVisualElapsed);
+                rightVisualOpacity = SmoothSideOpacity(rightVisualOpacity, rightDetected ? 100.0 : 0.0, sideVisualElapsed);
+
+                double[] nearby = GetRelativeDistances(telemetry, PositionRangeMeters);
+                Opponent frontOpponent = FindNearestOpponent(telemetry, settings, true);
+                Opponent rearOpponent = FindNearestOpponent(telemetry, settings, false);
+                frontMeters = ReadOpponentDistance(frontOpponent);
+                rearMeters = ReadOpponentDistance(rearOpponent);
+                frontSeconds = ReadOpponentGap(frontOpponent);
+                rearSeconds = ReadOpponentGap(rearOpponent);
+                frontProximityOpacity = CalculateProximityOpacity(frontMeters, frontSeconds, settings);
+                rearProximityOpacity = CalculateProximityOpacity(rearMeters, rearSeconds, settings);
+                double progressElapsed = lastProgressUpdate > 0.0 ? now - lastProgressUpdate : 0.016;
+                lastProgressUpdate = now;
+                double frontProgressTarget = CalculateNearProgress(frontMeters, settings.NearDistanceMeters);
+                double rearProgressTarget = CalculateNearProgress(rearMeters, settings.NearDistanceMeters);
+                frontNearProgress = SmoothProgress(frontNearProgress, frontProgressTarget, progressElapsed);
+                rearNearProgress = SmoothProgress(rearNearProgress, rearProgressTarget, progressElapsed);
+                frontNearBlend = CalculateNearBlend(frontMeters, settings.NearDistanceMeters);
+                rearNearBlend = CalculateNearBlend(rearMeters, settings.NearDistanceMeters);
+                bool sideClear = !leftDetected && !rightDetected;
+                frontVisible = IsFinite(frontMeters) && Math.Abs(frontMeters) <= settings.NearDistanceMeters + ColorTransitionMeters && sideClear;
+                rearVisible = IsFinite(rearMeters) && Math.Abs(rearMeters) <= settings.NearDistanceMeters + ColorTransitionMeters && sideClear;
+                frontFarVisible = IsFinite(frontMeters) && Math.Abs(frontMeters) >= Math.Max(0.0, settings.NearDistanceMeters - ColorTransitionMeters) && sideClear;
+                rearFarVisible = IsFinite(rearMeters) && Math.Abs(rearMeters) >= Math.Max(0.0, settings.NearDistanceMeters - ColorTransitionMeters) && sideClear;
+                double leftRelative = double.NaN;
+                double rightRelative = double.NaN;
+
+                if (leftDetected && rightDetected)
+                {
+                    AssignTwoSides(nearby, out leftRelative, out rightRelative);
+                }
+                else if (leftDetected && nearby.Length > 0)
+                {
+                    leftRelative = nearby[0];
+                }
+                else if (rightDetected && nearby.Length > 0)
+                {
+                    rightRelative = nearby[0];
+                }
+
+                left = UpdateSide(left, leftDetected, leftRelative, now);
+                right = UpdateSide(right, rightDetected, rightRelative, now);
+
+                bool hasNearbyCar = left.Visible || right.Visible || IsFinite(frontMeters) || IsFinite(rearMeters);
+                if (hasNearbyCar) radarHoldUntil = now + settings.HideDelaySeconds;
+                radarVisible = hasNearbyCar || now < radarHoldUntil;
+                Publish(true, nativeLeftRight);
+            }
+            catch (Exception ex)
+            {
+                Set("StatusText", "radar error: " + ex.GetType().Name);
+            }
+        }
+
+        public void End(PluginManager pluginManager)
+        {
+            SimHub.Logging.Current.Info("iRacing Radar plugin stopped");
+        }
+
+        private static Opponent FindNearestOpponent(StatusDataBase telemetry, RadarSettings settings, bool ahead)
+        {
+            Opponent nearest = null;
+            double nearestMagnitude = double.MaxValue;
+            if (telemetry.Opponents == null) return null;
+
+            foreach (Opponent opponent in telemetry.Opponents)
+            {
+                if (opponent == null || opponent.IsPlayer || !opponent.IsConnected) continue;
+                if (opponent.IsCarInGarage.HasValue && opponent.IsCarInGarage.Value) continue;
+                if (opponent.IsCarInPit || opponent.IsCarInPitLane || opponent.StandingStillInPitLane) continue;
+                if (!opponent.RelativeDistanceToPlayer.HasValue) continue;
+
+                double meters = opponent.RelativeDistanceToPlayer.Value;
+                if (!IsFinite(meters)) continue;
+                if (ahead ? meters >= -0.25 : meters <= 0.25) continue;
+
+                double seconds = ReadOpponentGap(opponent);
+                bool triggered = ShouldTrigger(settings, meters, seconds);
+                if (!triggered) continue;
+
+                double magnitude = Math.Abs(meters);
+                if (magnitude < nearestMagnitude)
+                {
+                    nearest = opponent;
+                    nearestMagnitude = magnitude;
+                }
+            }
+
+            return nearest;
+        }
+        private static bool ShouldTrigger(RadarSettings settings, double meters, double seconds)
+        {
+            bool distanceTriggered = IsFinite(meters) && Math.Abs(meters) <= settings.RadarRangeMeters;
+            bool timeTriggered = IsFinite(seconds) && Math.Abs(seconds) <= settings.TimeAlertSeconds;
+            if (settings.DisplayMode == "Distance") return distanceTriggered;
+            if (settings.DisplayMode == "Time") return timeTriggered;
+            return distanceTriggered || timeTriggered;
+        }
+        private static double ReadOpponentDistance(Opponent opponent)
+        {
+            return opponent != null && opponent.RelativeDistanceToPlayer.HasValue
+                ? opponent.RelativeDistanceToPlayer.Value
+                : double.NaN;
+        }
+
+        private static double ReadOpponentGap(Opponent opponent)
+        {
+            return opponent != null && opponent.RelativeGapToPlayer.HasValue && IsFinite(opponent.RelativeGapToPlayer.Value)
+                ? opponent.RelativeGapToPlayer.Value
+                : double.NaN;
+        }
+
+        private static double CalculateProximityOpacity(double meters, double seconds, RadarSettings settings)
+        {
+            double distanceOpacity = CalculateThresholdOpacity(Math.Abs(meters), settings.RadarRangeMeters);
+            double timeOpacity = CalculateThresholdOpacity(Math.Abs(seconds), settings.TimeAlertSeconds);
+
+            if (settings.DisplayMode == "Distance") return distanceOpacity;
+            if (settings.DisplayMode == "Time") return timeOpacity;
+            return Math.Max(distanceOpacity, timeOpacity);
+        }
+
+        private static double CalculateThresholdOpacity(double value, double threshold)
+        {
+            if (!IsFinite(value) || threshold <= 0.0 || value > threshold) return 0.0;
+            double normalized = 1.0 - value / threshold;
+            return 25.0 + normalized * 75.0;
+        }
+        private static double SmoothSideOpacity(double current, double target, double elapsed)
+        {
+            elapsed = Math.Max(0.0, Math.Min(elapsed, 0.25));
+            double timeConstant = target > current ? 0.07 : 0.18;
+            double alpha = 1.0 - Math.Exp(-elapsed / timeConstant);
+            return current + (target - current) * alpha;
+        }
+
+        private static double CalculateNearProgress(double meters, double nearDistanceMeters)
+        {
+            if (!IsFinite(meters) || nearDistanceMeters <= 0.0) return 0.0;
+            double distance = Math.Min(Math.Abs(meters), nearDistanceMeters);
+            return (1.0 - distance / nearDistanceMeters) * 100.0;
+        }
+
+        private static double SmoothProgress(double current, double target, double elapsed)
+        {
+            if (!IsFinite(current)) current = target;
+            elapsed = Math.Max(0.0, Math.Min(elapsed, 0.25));
+            double alpha = 1.0 - Math.Exp(-elapsed / 0.12);
+            return current + (target - current) * alpha;
+        }
+
+        private static double CalculateNearBlend(double meters, double nearDistanceMeters)
+        {
+            if (!IsFinite(meters) || nearDistanceMeters <= 0.0) return 0.0;
+            double distance = Math.Abs(meters);
+            double start = Math.Max(0.0, nearDistanceMeters - ColorTransitionMeters);
+            double end = nearDistanceMeters + ColorTransitionMeters;
+            if (distance <= start) return 100.0;
+            if (distance >= end) return 0.0;
+            return (end - distance) / (end - start) * 100.0;
+        }
+        private string BuildDisplayText(string prefix, double meters, double seconds)
+        {
+            string distance = IsFinite(meters)
+                ? Math.Abs(meters).ToString("0", CultureInfo.InvariantCulture) + "m"
+                : "--m";
+            string time = IsFinite(seconds)
+                ? Math.Abs(seconds).ToString("0.0", CultureInfo.InvariantCulture) + "s"
+                : "--.-s";
+
+            if (settings.DisplayMode == "Distance") return distance;
+            if (settings.DisplayMode == "Time") return time;
+            return distance + " / " + time;
+        }
+        private static double[] GetRelativeDistances(StatusDataBase telemetry, double rangeMeters)
+        {
+            List<double> result = new List<double>();
+            if (telemetry.Opponents == null) return result.ToArray();
+
+            foreach (Opponent opponent in telemetry.Opponents)
+            {
+                if (opponent == null || opponent.IsPlayer || !opponent.IsConnected) continue;
+                if (opponent.IsCarInGarage.HasValue && opponent.IsCarInGarage.Value) continue;
+                if (opponent.IsCarInPit || opponent.IsCarInPitLane || opponent.StandingStillInPitLane) continue;
+                if (!opponent.RelativeDistanceToPlayer.HasValue) continue;
+
+                double meters = opponent.RelativeDistanceToPlayer.Value;
+                if (double.IsNaN(meters) || double.IsInfinity(meters)) continue;
+                if (Math.Abs(meters) > rangeMeters) continue;
+                result.Add(meters);
+            }
+
+            result.Sort(delegate(double a, double b)
+            {
+                return Math.Abs(a).CompareTo(Math.Abs(b));
+            });
+            return result.ToArray();
+        }
+
+        private static double FindNearestAhead(double[] distances)
+        {
+            foreach (double value in distances) if (value < -0.25) return value;
+            return double.NaN;
+        }
+
+        private static double FindNearestBehind(double[] distances)
+        {
+            foreach (double value in distances) if (value > 0.25) return value;
+            return double.NaN;
+        }
+
+        private void AssignTwoSides(double[] nearby, out double leftMeters, out double rightMeters)
+        {
+            leftMeters = double.NaN;
+            rightMeters = double.NaN;
+            if (nearby.Length == 0) return;
+            if (nearby.Length == 1)
+            {
+                leftMeters = nearby[0];
+                rightMeters = nearby[0];
+                return;
+            }
+
+            // Preserve side continuity when possible so two opponents do not swap
+            // sides from one telemetry frame to the next.
+            double a = nearby[0];
+            double b = nearby[1];
+            double keep = Math.Abs(a - left.RelativeMeters) + Math.Abs(b - right.RelativeMeters);
+            double swap = Math.Abs(b - left.RelativeMeters) + Math.Abs(a - right.RelativeMeters);
+            if (left.Visible && right.Visible && swap < keep)
+            {
+                leftMeters = b;
+                rightMeters = a;
+            }
+            else
+            {
+                leftMeters = a;
+                rightMeters = b;
+            }
+        }
+
+        private static SideState UpdateSide(SideState previous, bool detected, double relativeMeters, double now)
+        {
+            if (detected)
+            {
+                double resolved = IsFinite(relativeMeters) ? relativeMeters : previous.RelativeMeters;
+                double top = RadarMath.CalculateTopFromRelativeMeters(resolved, previous.Top);
+                return new SideState(true, top, resolved, now + HoldSeconds);
+            }
+
+            if (previous.Visible && now < previous.HoldUntil) return previous;
+            return SideState.Hidden;
+        }
+
+        private void Publish(bool connected, int nativeLeftRight)
+        {
+            Set("Connected", connected);
+            Set("RadarVisible", radarVisible);
+            Set("RadarRangeMeters", settings.RadarRangeMeters);
+            Set("TimeAlertSeconds", settings.TimeAlertSeconds);
+            Set("NearDistanceMeters", settings.NearDistanceMeters);
+            Set("OverlayOpacity", settings.OverlayOpacity);
+            Set("LeftVisible", left.Visible);
+            Set("RightVisible", right.Visible);
+            Set("LeftVisualOpacity", leftVisualOpacity);
+            Set("RightVisualOpacity", rightVisualOpacity);
+            Set("LeftTop", left.Top);
+            Set("RightTop", right.Top);
+            Set("LeftRelativeMeters", left.RelativeMeters);
+            Set("RightRelativeMeters", right.RelativeMeters);
+            Set("FrontVisible", frontVisible);
+            Set("RearVisible", rearVisible);
+            Set("FrontFarVisible", frontFarVisible);
+            Set("RearFarVisible", rearFarVisible);
+            Set("FrontTop", RadarMath.CalculateCenterCarTop(frontMeters));
+            Set("RearTop", RadarMath.CalculateCenterCarTop(rearMeters));
+            Set("FrontRelativeMeters", IsFinite(frontMeters) ? frontMeters : 0.0);
+            Set("RearRelativeMeters", IsFinite(rearMeters) ? rearMeters : 0.0);
+            Set("FrontRelativeSeconds", IsFinite(frontSeconds) ? frontSeconds : 0.0);
+            Set("RearRelativeSeconds", IsFinite(rearSeconds) ? rearSeconds : 0.0);
+            Set("FrontDisplayText", BuildDisplayText("F", frontMeters, frontSeconds));
+            Set("RearDisplayText", BuildDisplayText("B", rearMeters, rearSeconds));
+            Set("FrontProximityOpacity", frontProximityOpacity);
+            Set("RearProximityOpacity", rearProximityOpacity);
+            Set("FrontNearProgress", frontNearProgress);
+            Set("RearNearProgress", rearNearProgress);
+            Set("FrontNearBlend", frontNearBlend);
+            Set("RearNearBlend", rearNearBlend);
+            Set("LabelFontSize", settings.LabelFontSize);
+            Set("DisplayMode", settings.DisplayMode);
+            Set("RawCarLeftRight", nativeLeftRight);
+
+            string state = !connected ? "waiting for iRacing" :
+                left.Visible && right.Visible ? "LEFT + RIGHT" :
+                left.Visible ? "LEFT" : right.Visible ? "RIGHT" : "CLEAR";
+            Set("StatusText", string.Format(CultureInfo.InvariantCulture,
+                "{0} | L={1:+0.0;-0.0;0.0}m R={2:+0.0;-0.0;0.0}m | LR={3}",
+                state, left.RelativeMeters, right.RelativeMeters, nativeLeftRight));
+        }
+
+        private void RefreshSettings(double now)
+        {
+            if (now < nextSettingsRefresh) return;
+            nextSettingsRefresh = now + 1.0;
+
+            try
+            {
+                settings = RadarSettings.Load(settingsPath);
+            }
+            catch
+            {
+                // Keep the last valid settings while the file is being saved.
+            }
+        }
+
+        private int ReadNativeLeftRight()
+        {
+            string[] paths =
+            {
+                "DataCorePlugin.GameRawData.Telemetry.CarLeftRight",
+                "DataCorePlugin.GameRawData.CarLeftRight",
+                "CarLeftRight"
+            };
+
+            foreach (string path in paths)
+            {
+                try
+                {
+                    object value = PluginManager.GetPropertyValue(path);
+                    if (value != null) return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                }
+                catch
+                {
+                }
+            }
+            return 0;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private void Add<T>(string name, T value, string description)
+        {
+            PluginManager.AddProperty(name, GetType(), value, description);
+        }
+
+        private void Set(string name, object value)
+        {
+            PluginManager.SetPropertyValue(name, GetType(), value);
+        }
+
+        private struct SideState
+        {
+            public static readonly SideState Hidden =
+                new SideState(false, RadarMath.CenterTop, 0.0, 0.0);
+
+            public SideState(bool visible, double top, double relativeMeters, double holdUntil)
+            {
+                this = default(SideState);
+                Visible = visible;
+                Top = top;
+                RelativeMeters = relativeMeters;
+                HoldUntil = holdUntil;
+            }
+
+            public bool Visible { get; private set; }
+            public double Top { get; private set; }
+            public double RelativeMeters { get; private set; }
+            public double HoldUntil { get; private set; }
+        }
+    }
+}

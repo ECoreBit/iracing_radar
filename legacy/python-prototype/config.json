@@ -1,0 +1,23 @@
+﻿{
+  "radar_range_meters": 70,
+  "proximity_warning_meters": 35,
+  "full_overlap_meters": 5,
+  "update_hz": 30,
+  "max_cars": 10,
+  "window": {
+    "width": 380,
+    "height": 420,
+    "opacity": 0.9,
+    "always_on_top": true
+  },
+  "colors": {
+    "background": [8, 12, 18, 160],
+    "grid": [255, 255, 255, 42],
+    "text": [238, 244, 255, 235],
+    "own_car": [50, 170, 255, 255],
+    "car_far": [255, 180, 65, 220],
+    "car_near": [255, 75, 75, 245],
+    "side_confirmed": [255, 45, 45, 230],
+    "side_unknown": [255, 145, 30, 220]
+  }
+}

@@ -1,0 +1,12 @@
+.vs/
+.venv/
+.agents/
+.codex/
+**/bin/
+**/obj/
+**/__pycache__/
+*.py[cod]
+*.user
+*.suo
+SimHubPlugin/Overlay/FanResources/
+
