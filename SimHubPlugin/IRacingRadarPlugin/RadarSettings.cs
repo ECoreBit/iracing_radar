@@ -20,7 +20,7 @@ namespace User.IRacingRadarPlugin
             {
                 RadarRangeMeters = 70.0,
                 NearDistanceMeters = 20.0,
-                TimeAlertSeconds = 3.0,
+                TimeAlertSeconds = 0.7,
                 OverlayOpacity = 92.0,
                 HideDelaySeconds = 0.8,
                 DisplayMode = "Both",

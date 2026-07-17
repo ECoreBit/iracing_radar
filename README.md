@@ -82,7 +82,7 @@ RadarRangeMeters=70
 距离提示范围，单位是米。`DisplayMode=Distance` 时使用这个值；`DisplayMode=Both` 时它会和时间差条件一起判断，哪个先满足就触发显示。
 
 ```ini
-TimeAlertSeconds=3.0
+TimeAlertSeconds=0.7
 ```
 
 时间差提示范围，单位是秒。`DisplayMode=Time` 时使用这个值；`DisplayMode=Both` 时它会和距离条件一起判断。`DisplayMode=Distance` 时忽略这个值。
@@ -183,7 +183,7 @@ RadarRangeMeters=70
 Distance alert range in meters. Used when `DisplayMode=Distance`; combined with the time condition when `DisplayMode=Both`.
 
 ```ini
-TimeAlertSeconds=3.0
+TimeAlertSeconds=0.7
 ```
 
 Time-gap alert range in seconds. Used when `DisplayMode=Time`; combined with the distance condition when `DisplayMode=Both`. Ignored when `DisplayMode=Distance`.

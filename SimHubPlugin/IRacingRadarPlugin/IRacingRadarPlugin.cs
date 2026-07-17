@@ -15,6 +15,9 @@ namespace User.IRacingRadarPlugin
         private const double HoldSeconds = 0.45;
         private const double PositionRangeMeters = 18.0;
         private const double ColorTransitionMeters = 2.5;
+        private const double MotionSmoothingSeconds = 0.30;
+        private const double MotionEnterMetersPerSecond = 0.45;
+        private const double MotionNeutralMetersPerSecond = 0.20;
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private SideState left = SideState.Hidden;
         private SideState right = SideState.Hidden;
@@ -35,6 +38,10 @@ namespace User.IRacingRadarPlugin
         private double rearNearProgress;
         private double frontNearBlend;
         private double rearNearBlend;
+        private double frontFarProgress;
+        private double rearFarProgress;
+        private MotionTracker frontMotion = MotionTracker.Empty;
+        private MotionTracker rearMotion = MotionTracker.Empty;
         private double lastProgressUpdate;
         private readonly string settingsPath = ResolveSettingsPath();
         private RadarSettings settings = RadarSettings.Default();
@@ -89,6 +96,12 @@ namespace User.IRacingRadarPlugin
             Add("RearNearProgress", 0.0, "Rear red fan expansion from 0 to 100.");
             Add("FrontNearBlend", 0.0, "Front red/green transition blend.");
             Add("RearNearBlend", 0.0, "Rear red/green transition blend.");
+            Add("FrontFarProgress", 0.0, "Remaining front green arc length from 0 to 100.");
+            Add("RearFarProgress", 0.0, "Remaining rear green arc length from 0 to 100.");
+            Add("FrontMotionState", 0, "1=closing, -1=separating, 0=steady.");
+            Add("RearMotionState", 0, "1=closing, -1=separating, 0=steady.");
+            Add("FrontClosingSpeed", 0.0, "Smoothed front closing speed in m/s.");
+            Add("RearClosingSpeed", 0.0, "Smoothed rear closing speed in m/s.");
             Add("LabelFontSize", settings.LabelFontSize, "Configured front/rear label font size.");
             Add("DisplayMode", settings.DisplayMode, "Distance, Time, or Both." );
             Add("RadarVisible", false, "True while at least one opponent is inside the configured radar range.");
@@ -133,6 +146,10 @@ namespace User.IRacingRadarPlugin
                     rearNearProgress = 0.0;
                     frontNearBlend = 0.0;
                     rearNearBlend = 0.0;
+                    frontFarProgress = 0.0;
+                    rearFarProgress = 0.0;
+                    frontMotion = MotionTracker.Empty;
+                    rearMotion = MotionTracker.Empty;
                     lastProgressUpdate = 0.0;
                     radarVisible = false;
                     Publish(false, nativeLeftRight);
@@ -154,21 +171,38 @@ namespace User.IRacingRadarPlugin
                 rearMeters = ReadOpponentDistance(rearOpponent);
                 frontSeconds = ReadOpponentGap(frontOpponent);
                 rearSeconds = ReadOpponentGap(rearOpponent);
+                frontMotion = UpdateMotion(frontMotion, frontOpponent, frontMeters, now);
+                rearMotion = UpdateMotion(rearMotion, rearOpponent, rearMeters, now);
                 frontProximityOpacity = CalculateProximityOpacity(frontMeters, frontSeconds, settings);
                 rearProximityOpacity = CalculateProximityOpacity(rearMeters, rearSeconds, settings);
                 double progressElapsed = lastProgressUpdate > 0.0 ? now - lastProgressUpdate : 0.016;
                 lastProgressUpdate = now;
-                double frontProgressTarget = CalculateNearProgress(frontMeters, settings.NearDistanceMeters);
-                double rearProgressTarget = CalculateNearProgress(rearMeters, settings.NearDistanceMeters);
+                double frontAlertProgress = frontOpponent != null
+                    ? CalculateAlertProgress(frontMeters, frontSeconds, settings) : 0.0;
+                double rearAlertProgress = rearOpponent != null
+                    ? CalculateAlertProgress(rearMeters, rearSeconds, settings) : 0.0;
+                double nearStartProgress = CalculateNearStartProgress(settings);
+                double nearTransitionProgress = Math.Max(2.0,
+                    ColorTransitionMeters / settings.RadarRangeMeters * 100.0);
+                double frontProgressTarget = CalculateNearProgress(frontAlertProgress, nearStartProgress);
+                double rearProgressTarget = CalculateNearProgress(rearAlertProgress, nearStartProgress);
+                double frontNearBlendTarget = CalculateNearBlend(frontAlertProgress, nearStartProgress, nearTransitionProgress);
+                double rearNearBlendTarget = CalculateNearBlend(rearAlertProgress, nearStartProgress, nearTransitionProgress);
                 frontNearProgress = SmoothProgress(frontNearProgress, frontProgressTarget, progressElapsed);
                 rearNearProgress = SmoothProgress(rearNearProgress, rearProgressTarget, progressElapsed);
-                frontNearBlend = CalculateNearBlend(frontMeters, settings.NearDistanceMeters);
-                rearNearBlend = CalculateNearBlend(rearMeters, settings.NearDistanceMeters);
+                frontNearBlend = SmoothProgress(frontNearBlend, frontNearBlendTarget, progressElapsed);
+                rearNearBlend = SmoothProgress(rearNearBlend, rearNearBlendTarget, progressElapsed);
+                frontFarProgress = SmoothProgress(frontFarProgress,
+                    frontOpponent != null ? CalculateFarProgress(frontAlertProgress, nearStartProgress) : 0.0,
+                    progressElapsed);
+                rearFarProgress = SmoothProgress(rearFarProgress,
+                    rearOpponent != null ? CalculateFarProgress(rearAlertProgress, nearStartProgress) : 0.0,
+                    progressElapsed);
                 bool sideClear = !leftDetected && !rightDetected;
-                frontVisible = IsFinite(frontMeters) && Math.Abs(frontMeters) <= settings.NearDistanceMeters + ColorTransitionMeters && sideClear;
-                rearVisible = IsFinite(rearMeters) && Math.Abs(rearMeters) <= settings.NearDistanceMeters + ColorTransitionMeters && sideClear;
-                frontFarVisible = IsFinite(frontMeters) && Math.Abs(frontMeters) >= Math.Max(0.0, settings.NearDistanceMeters - ColorTransitionMeters) && sideClear;
-                rearFarVisible = IsFinite(rearMeters) && Math.Abs(rearMeters) >= Math.Max(0.0, settings.NearDistanceMeters - ColorTransitionMeters) && sideClear;
+                frontVisible = frontOpponent != null && frontNearBlendTarget > 0.5 && sideClear;
+                rearVisible = rearOpponent != null && rearNearBlendTarget > 0.5 && sideClear;
+                frontFarVisible = frontOpponent != null && frontNearBlendTarget < 99.5 && sideClear;
+                rearFarVisible = rearOpponent != null && rearNearBlendTarget < 99.5 && sideClear;
                 double leftRelative = double.NaN;
                 double rightRelative = double.NaN;
 
@@ -273,6 +307,27 @@ namespace User.IRacingRadarPlugin
             double normalized = 1.0 - value / threshold;
             return 25.0 + normalized * 75.0;
         }
+        private static double CalculateAlertProgress(double meters, double seconds, RadarSettings settings)
+        {
+            double distanceProgress = CalculateThresholdProgress(Math.Abs(meters), settings.RadarRangeMeters);
+            double timeProgress = CalculateThresholdProgress(Math.Abs(seconds), settings.TimeAlertSeconds);
+            if (settings.DisplayMode == "Distance") return distanceProgress;
+            if (settings.DisplayMode == "Time") return timeProgress;
+            return Math.Max(distanceProgress, timeProgress);
+        }
+
+        private static double CalculateThresholdProgress(double value, double threshold)
+        {
+            if (!IsFinite(value) || threshold <= 0.0 || value > threshold) return 0.0;
+            return Math.Max(0.0, Math.Min(100.0, (1.0 - value / threshold) * 100.0));
+        }
+
+        private static double CalculateNearStartProgress(RadarSettings settings)
+        {
+            return Math.Max(1.0, Math.Min(95.0,
+                (1.0 - settings.NearDistanceMeters / settings.RadarRangeMeters) * 100.0));
+        }
+
         private static double SmoothSideOpacity(double current, double target, double elapsed)
         {
             elapsed = Math.Max(0.0, Math.Min(elapsed, 0.25));
@@ -281,11 +336,19 @@ namespace User.IRacingRadarPlugin
             return current + (target - current) * alpha;
         }
 
-        private static double CalculateNearProgress(double meters, double nearDistanceMeters)
+        private static double CalculateNearProgress(double alertProgress, double nearStartProgress)
         {
-            if (!IsFinite(meters) || nearDistanceMeters <= 0.0) return 0.0;
-            double distance = Math.Min(Math.Abs(meters), nearDistanceMeters);
-            return (1.0 - distance / nearDistanceMeters) * 100.0;
+            if (!IsFinite(alertProgress) || alertProgress <= nearStartProgress) return 0.0;
+            return Math.Min(100.0,
+                (alertProgress - nearStartProgress) / (100.0 - nearStartProgress) * 100.0);
+        }
+
+        private static double CalculateFarProgress(double alertProgress, double nearStartProgress)
+        {
+            if (!IsFinite(alertProgress) || nearStartProgress <= 0.0) return 0.0;
+            if (alertProgress >= nearStartProgress) return 0.0;
+            return Math.Max(0.0, Math.Min(100.0,
+                (1.0 - alertProgress / nearStartProgress) * 100.0));
         }
 
         private static double SmoothProgress(double current, double target, double elapsed)
@@ -296,15 +359,55 @@ namespace User.IRacingRadarPlugin
             return current + (target - current) * alpha;
         }
 
-        private static double CalculateNearBlend(double meters, double nearDistanceMeters)
+        private static double CalculateNearBlend(double alertProgress, double nearStartProgress, double transition)
         {
-            if (!IsFinite(meters) || nearDistanceMeters <= 0.0) return 0.0;
-            double distance = Math.Abs(meters);
-            double start = Math.Max(0.0, nearDistanceMeters - ColorTransitionMeters);
-            double end = nearDistanceMeters + ColorTransitionMeters;
-            if (distance <= start) return 100.0;
-            if (distance >= end) return 0.0;
-            return (end - distance) / (end - start) * 100.0;
+            if (!IsFinite(alertProgress)) return 0.0;
+            double start = nearStartProgress - transition;
+            double end = nearStartProgress + transition;
+            if (alertProgress <= start) return 0.0;
+            if (alertProgress >= end) return 100.0;
+            double t = (alertProgress - start) / (end - start);
+            t = t * t * (3.0 - 2.0 * t);
+            return t * 100.0;
+        }
+        private static MotionTracker UpdateMotion(
+            MotionTracker previous, Opponent opponent, double meters, double now)
+        {
+            if (opponent == null || !IsFinite(meters)) return MotionTracker.Empty;
+            string opponentKey = GetOpponentKey(opponent);
+            if (!previous.Valid || previous.OpponentKey != opponentKey || now <= previous.SampleTime)
+                return new MotionTracker(true, opponentKey, meters, now, 0.0, 0);
+
+            double elapsed = now - previous.SampleTime;
+            if (elapsed > 0.5)
+                return new MotionTracker(true, opponentKey, meters, now, 0.0, 0);
+
+            double rawClosingSpeed = CalculateClosingSpeed(previous.DistanceMeters, meters, elapsed);
+            rawClosingSpeed = Math.Max(-50.0, Math.Min(50.0, rawClosingSpeed));
+            double alpha = 1.0 - Math.Exp(-elapsed / MotionSmoothingSeconds);
+            double smoothed = previous.ClosingSpeed + (rawClosingSpeed - previous.ClosingSpeed) * alpha;
+            int state = ClassifyMotion(smoothed, previous.State);
+            return new MotionTracker(true, opponentKey, meters, now, smoothed, state);
+        }
+
+        private static double CalculateClosingSpeed(double previousMeters, double currentMeters, double elapsed)
+        {
+            if (!IsFinite(previousMeters) || !IsFinite(currentMeters) || elapsed <= 0.0) return 0.0;
+            return (Math.Abs(previousMeters) - Math.Abs(currentMeters)) / elapsed;
+        }
+
+        private static int ClassifyMotion(double closingSpeed, int previousState)
+        {
+            if (closingSpeed >= MotionEnterMetersPerSecond) return 1;
+            if (closingSpeed <= -MotionEnterMetersPerSecond) return -1;
+            if (Math.Abs(closingSpeed) <= MotionNeutralMetersPerSecond) return 0;
+            return previousState;
+        }
+
+        private static string GetOpponentKey(Opponent opponent)
+        {
+            if (!string.IsNullOrEmpty(opponent.Id)) return opponent.Id;
+            return (opponent.CarNumber ?? string.Empty) + "|" + (opponent.Name ?? string.Empty);
         }
         private string BuildDisplayText(string prefix, double meters, double seconds)
         {
@@ -441,6 +544,12 @@ namespace User.IRacingRadarPlugin
             Set("RearNearProgress", rearNearProgress);
             Set("FrontNearBlend", frontNearBlend);
             Set("RearNearBlend", rearNearBlend);
+            Set("FrontFarProgress", frontFarProgress);
+            Set("RearFarProgress", rearFarProgress);
+            Set("FrontMotionState", frontMotion.State);
+            Set("RearMotionState", rearMotion.State);
+            Set("FrontClosingSpeed", frontMotion.ClosingSpeed);
+            Set("RearClosingSpeed", rearMotion.ClosingSpeed);
             Set("LabelFontSize", settings.LabelFontSize);
             Set("DisplayMode", settings.DisplayMode);
             Set("RawCarLeftRight", nativeLeftRight);
@@ -506,6 +615,30 @@ namespace User.IRacingRadarPlugin
             PluginManager.SetPropertyValue(name, GetType(), value);
         }
 
+        private struct MotionTracker
+        {
+            public static readonly MotionTracker Empty =
+                new MotionTracker(false, string.Empty, 0.0, 0.0, 0.0, 0);
+
+            public MotionTracker(bool valid, string opponentKey, double distanceMeters,
+                double sampleTime, double closingSpeed, int state)
+            {
+                this = default(MotionTracker);
+                Valid = valid;
+                OpponentKey = opponentKey;
+                DistanceMeters = distanceMeters;
+                SampleTime = sampleTime;
+                ClosingSpeed = closingSpeed;
+                State = state;
+            }
+
+            public bool Valid { get; private set; }
+            public string OpponentKey { get; private set; }
+            public double DistanceMeters { get; private set; }
+            public double SampleTime { get; private set; }
+            public double ClosingSpeed { get; private set; }
+            public int State { get; private set; }
+        }
         private struct SideState
         {
             public static readonly SideState Hidden =
