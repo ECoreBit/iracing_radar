@@ -131,21 +131,24 @@ RadarRangeMeters=70
 TimeAlertSeconds=0.7
 ```
 
-时间差条件的范围，单位是秒。设置为 `0.7` 表示前后车辆与本车的时间差不超过 0.7 秒时，时间差条件成立。
+**这是时间差提示范围。** 它决定前后车辆与本车的时间差达到多少秒时开始提示。设置为 `0.7` 时，时间差大于 0.7 秒不提示，时间差不超过 0.7 秒就进入提示范围。
 
-时间差使用相同的比例区间，并会随着 `TimeAlertSeconds` 的设置自动缩放。
+这个参数是否使用，由 `DisplayMode` 决定：
+
+- `Time`：只使用 `TimeAlertSeconds` 判断是否提示。
+- `Both`：同时检查 `TimeAlertSeconds` 和 `RadarRangeMeters`，任意一个条件满足就提示。
+- `Distance`：不使用 `TimeAlertSeconds`。
+- `None`：判断方式与 `Both` 相同，但隐藏距离和时间差文字。
+
+因此，`TimeAlertSeconds` 只需要配合 `DisplayMode` 使用，不需要配合 `RadarFadeBandPercent`。
+
+例如同时设置 `RadarRangeMeters=70` 和 `TimeAlertSeconds=0.7`：车辆相距 60 米但时间差为 1.0 秒时，距离条件成立；车辆相距 90 米但时间差为 0.5 秒时，时间差条件成立。`Both` 和 `None` 在这两种情况下都会显示图形警示，但 `None` 不显示任何数字。
 
 ```ini
 RadarFadeBandPercent=15
 ```
 
-控制距离和时间差范围最外侧用于透明度变化的比例，范围为 `1` 到 `50`。设置为 `15` 时，最外侧 15% 从透明度 0 按比例增加，进入内部 85% 后完全显示。
-
-- `DisplayMode=Time`：只根据这个时间差判断是否提示。
-- `DisplayMode=Both` 或 `None`：时间差条件和距离条件满足任意一个，都会显示图形警示。
-- `DisplayMode=Distance`：不使用这个时间差条件。
-
-例如同时设置 `RadarRangeMeters=70` 和 `TimeAlertSeconds=0.7`：车辆相距 60 米但时间差为 1.0 秒时，距离条件成立；车辆相距 90 米但时间差为 0.5 秒时，时间差条件成立。`Both` 和 `None` 在这两种情况下都会显示图形警示，但 `None` 不显示任何数字。
+**这是独立的雷达透明度设置。** 它控制雷达进入或离开提示范围时，使用多大比例的范围逐渐显示或隐藏。设置为 `15` 表示使用提示范围边缘的 15% 改变透明度，剩余范围内完全显示。它不会修改距离或时间差的触发值，也不需要与 `TimeAlertSeconds` 配套使用。
 
 ```ini
 NearDistanceMeters=20
@@ -301,21 +304,24 @@ The radar fades in proportionally over the outermost 15% of the configured dista
 TimeAlertSeconds=0.7
 ```
 
-The time-gap-condition range in seconds. A value of `0.7` means the time-gap condition is met when a front or rear car is no more than 0.7 seconds away.
+**This is the time-gap alert range.** It determines when a front or rear car starts triggering an alert based on its time gap to the player. At `0.7`, a gap above 0.7 seconds does not trigger an alert; a gap of 0.7 seconds or less is inside the alert range.
 
-The time-gap condition uses the same proportional region, scaled automatically from `TimeAlertSeconds`.
+Whether this setting is used depends on `DisplayMode`:
+
+- `Time`: uses only `TimeAlertSeconds`.
+- `Both`: checks both `TimeAlertSeconds` and `RadarRangeMeters`; either condition can trigger the alert.
+- `Distance`: does not use `TimeAlertSeconds`.
+- `None`: uses the same trigger logic as `Both`, but hides distance and time-gap text.
+
+Therefore, `TimeAlertSeconds` only needs the appropriate `DisplayMode`; it does not need to be paired with `RadarFadeBandPercent`.
+
+For example, with `RadarRangeMeters=70` and `TimeAlertSeconds=0.7`: a car at 60 metres with a 1.0-second gap meets the distance condition; a car at 90 metres with a 0.5-second gap meets the time-gap condition. `Both` and `None` show the graphical alert in either case, but `None` shows no numeric values.
 
 ```ini
 RadarFadeBandPercent=15
 ```
 
-Controls the percentage of the outer distance/time range used for opacity transition, from `1` to `50`. At `15`, opacity increases proportionally through the outermost 15%, then remains fully visible through the inner 85%.
-
-- `DisplayMode=Time`: only this time-gap condition controls the alert.
-- `DisplayMode=Both` or `None`: the graphical alert appears when either the time-gap condition or distance condition is met.
-- `DisplayMode=Distance`: this time-gap condition is not used.
-
-For example, with `RadarRangeMeters=70` and `TimeAlertSeconds=0.7`: a car at 60 metres with a 1.0-second gap meets the distance condition; a car at 90 metres with a 0.5-second gap meets the time-gap condition. `Both` and `None` show the graphical alert in either case, but `None` shows no numeric values.
+**This is an independent radar-opacity setting.** It controls how much of the alert-range edge is used to gradually show or hide the radar. At `15`, the outer 15% of the alert range changes opacity and the radar is fully visible through the remaining range. It does not change the distance or time-gap trigger values and does not need to be paired with `TimeAlertSeconds`.
 
 ```ini
 NearDistanceMeters=20
