@@ -1,4 +1,4 @@
-using GameReaderCommon;
+﻿using GameReaderCommon;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -16,7 +16,43 @@ internal static class RadarSyntheticTest
         Assembly plugin = Assembly.LoadFrom("User.IRacingRadarPlugin.dll");
         Type pluginType = plugin.GetType("User.IRacingRadarPlugin.IRacingRadarPlugin", true);
         MethodInfo select = pluginType.GetMethod("GetRelativeDistances", BindingFlags.NonPublic | BindingFlags.Static);
+        Type settingsType = plugin.GetType("User.IRacingRadarPlugin.RadarSettings", true);
+        MethodInfo normalizeMode = settingsType.GetMethod("NormalizeDisplayMode", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo parseBoolean = settingsType.GetMethod("ParseBoolean", BindingFlags.NonPublic | BindingFlags.Static);
+        object settings = settingsType.GetMethod("Default", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
+        settingsType.GetProperty("DisplayMode").GetSetMethod(true).Invoke(settings, new object[] { "None" });
+        object pluginInstance = Activator.CreateInstance(pluginType);
+        pluginType.GetField("settings", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(pluginInstance, settings);
+        MethodInfo buildDisplayText = pluginType.GetMethod("BuildDisplayText", BindingFlags.NonPublic | BindingFlags.Instance);
+        MethodInfo shouldTrigger = pluginType.GetMethod("ShouldTrigger", BindingFlags.NonPublic | BindingFlags.Static);
+        bool noneModePass = (string)normalizeMode.Invoke(null, new object[] { "none" }) == "None" &&
+            (string)normalizeMode.Invoke(null, new object[] { "invalid" }) == "Both" &&
+            (string)buildDisplayText.Invoke(pluginInstance, new object[] { "F", 12.0, 0.4 }) == string.Empty &&
+            (bool)shouldTrigger.Invoke(null, new object[] { settings, 100.0, 0.5 }) &&
+            (bool)shouldTrigger.Invoke(null, new object[] { settings, 60.0, 1.0 }) &&
+            !(bool)shouldTrigger.Invoke(null, new object[] { settings, 100.0, 1.0 });
+        bool greenArcSwitchPass = Math.Abs((double)settingsType.GetProperty("RadarFadeBandPercent").GetValue(settings, null) - 15.0) < 0.001 &&
+            (bool)settingsType.GetProperty("FrontGreenArcEnabled").GetValue(settings, null) &&
+            (bool)settingsType.GetProperty("RearGreenArcEnabled").GetValue(settings, null) &&
+            !(bool)parseBoolean.Invoke(null, new object[] { "false", true }) &&
+            !(bool)parseBoolean.Invoke(null, new object[] { "off", true }) &&
+            (bool)parseBoolean.Invoke(null, new object[] { "yes", false }) &&
+            (bool)parseBoolean.Invoke(null, new object[] { "invalid", true });
 
+        MethodInfo thresholdOpacity = pluginType.GetMethod("CalculateThresholdOpacity", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo directionalOpacity = pluginType.GetMethod("CalculateDirectionalRadarOpacity", BindingFlags.NonPublic | BindingFlags.Static);
+        double edgeOpacity = (double)thresholdOpacity.Invoke(null, new object[] { 70.0, 70.0, 15.0 });
+        double proportionalOpacity = (double)thresholdOpacity.Invoke(null, new object[] { 65.0, 70.0, 15.0 });
+        double fullOpacity = (double)thresholdOpacity.Invoke(null, new object[] { 59.0, 70.0, 15.0 });
+        double timeProportionalOpacity = (double)thresholdOpacity.Invoke(null, new object[] { 0.65, 0.7, 15.0 });
+        double greenEnabledFar = (double)directionalOpacity.Invoke(null, new object[] { true, true, false, 0.0, 60.0 });
+        double greenDisabledFar = (double)directionalOpacity.Invoke(null, new object[] { true, false, false, 0.0, 60.0 });
+        double greenDisabledNear = (double)directionalOpacity.Invoke(null, new object[] { true, false, true, 50.0, 80.0 });
+        bool radarOpacityPass = edgeOpacity == 0.0 && proportionalOpacity > 0.0 &&
+            proportionalOpacity < 100.0 && fullOpacity == 100.0 &&
+            timeProportionalOpacity > 0.0 && timeProportionalOpacity < 100.0 &&
+            Math.Abs(greenEnabledFar - 60.0) < 0.001 && greenDisabledFar == 0.0 &&
+            Math.Abs(greenDisabledNear - 40.0) < 0.001;
         FakeStatus data = new FakeStatus();
         Add(data, 7.0);
         Add(data, -2.0);
@@ -76,7 +112,10 @@ internal static class RadarSyntheticTest
         Console.WriteLine(smoothPass ? "PASS side position smoothing" : "FAIL side position smoothing");
         Console.WriteLine(transitionPass ? "PASS green-to-red transition" : "FAIL green-to-red transition");
         Console.WriteLine(motionPass ? "PASS closing/separating direction" : "FAIL closing/separating direction");
-        return pass && smoothPass && transitionPass && motionPass ? 0 : 2;
+        Console.WriteLine(noneModePass ? "PASS None display mode" : "FAIL None display mode");
+        Console.WriteLine(greenArcSwitchPass ? "PASS green arc switches" : "FAIL green arc switches");
+        Console.WriteLine(radarOpacityPass ? "PASS distance/time radar opacity" : "FAIL distance/time radar opacity");
+        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && radarOpacityPass ? 0 : 2;
     }
 
     private static void AddPit(StatusDataBase data, double meters)

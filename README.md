@@ -108,29 +108,57 @@ C:\Program Files (x86)\SimHub\IRacingRadar.settings.ini
 DisplayMode=Both
 ```
 
-控制前后车辆文字显示和触发方式。
+控制前后车辆显示哪些数字，并决定使用距离条件、时间差条件还是两者来显示图形警示。
 
-- `Distance`：按距离触发，只显示米数。
-- `Time`：按时间差触发，只显示秒数。
-- `Both`：距离或时间差任一条件满足就显示，同时显示米数和秒数。
+- `None`：不显示距离和时差文字；图形警示仍然正常显示，并采用与 `Both` 相同的触发条件。
+- `Distance`：只看距离条件，只显示米数。
+- `Time`：只看时间差条件，只显示秒数。
+- `Both`：距离或时间差只要有一个达到设定范围，就显示图形警示，并同时显示米数和秒数。
 
 ```ini
 RadarRangeMeters=70
 ```
 
-距离提示范围，单位是米。`DisplayMode=Distance` 时使用这个值；`DisplayMode=Both` 时它会和时间差条件一起判断，哪个先满足就触发显示。
+距离条件的范围，单位是米。设置为 `70` 表示前后车辆距离本车不超过 70 米时，距离条件成立。
+
+雷达会在距离范围最外侧的 15% 区间内按比例渐显。例如范围为 70 米时，70 米处透明度为 0，65 米处于渐显状态，约 59.5 米及以内完全显示。
+
+- `DisplayMode=Distance`：只根据这个距离判断是否提示。
+- `DisplayMode=Both` 或 `None`：距离条件和时间差条件满足任意一个，都会显示图形警示。
+- `DisplayMode=Time`：不使用这个距离条件。
 
 ```ini
 TimeAlertSeconds=0.7
 ```
 
-时间差提示范围，单位是秒。`DisplayMode=Time` 时使用这个值；`DisplayMode=Both` 时它会和距离条件一起判断。`DisplayMode=Distance` 时忽略这个值。
+时间差条件的范围，单位是秒。设置为 `0.7` 表示前后车辆与本车的时间差不超过 0.7 秒时，时间差条件成立。
+
+时间差使用相同的比例区间，并会随着 `TimeAlertSeconds` 的设置自动缩放。
+
+```ini
+RadarFadeBandPercent=15
+```
+
+控制距离和时间差范围最外侧用于透明度变化的比例，范围为 `1` 到 `50`。设置为 `15` 时，最外侧 15% 从透明度 0 按比例增加，进入内部 85% 后完全显示。
+
+- `DisplayMode=Time`：只根据这个时间差判断是否提示。
+- `DisplayMode=Both` 或 `None`：时间差条件和距离条件满足任意一个，都会显示图形警示。
+- `DisplayMode=Distance`：不使用这个时间差条件。
+
+例如同时设置 `RadarRangeMeters=70` 和 `TimeAlertSeconds=0.7`：车辆相距 60 米但时间差为 1.0 秒时，距离条件成立；车辆相距 90 米但时间差为 0.5 秒时，时间差条件成立。`Both` 和 `None` 在这两种情况下都会显示图形警示，但 `None` 不显示任何数字。
 
 ```ini
 NearDistanceMeters=20
 ```
 
 近距离红色警示范围，单位是米。前后车辆进入这个范围后，雷达会从绿色提示逐渐变成红色警示。
+
+```ini
+FrontGreenArcEnabled=true
+RearGreenArcEnabled=true
+```
+
+分别控制前方和后方的绿色远距离提示条。设置为 `true` 时显示，设置为 `false` 时隐藏。关闭绿色条后，该方向只在红色近距离警示期间显示；红色扇形结束后，雷达和文字会一起渐隐。侧面标记不受影响。
 
 ```ini
 OverlayOpacity=92
@@ -143,12 +171,6 @@ LabelFontSize=22
 ```
 
 前后车辆距离/时间文字大小。
-
-```ini
-HideDelaySeconds=0.8
-```
-
-附近没有车辆后，雷达延迟隐藏的时间，单位是秒。数值越大，雷达消失越慢。
 
 <a id="readme-en"></a>
 
@@ -256,29 +278,57 @@ The plugin reads this file first because it is next to `User.IRacingRadarPlugin.
 DisplayMode=Both
 ```
 
-Controls front/rear text display and alert triggering.
+Controls which front/rear values are shown and whether the graphical alert uses the distance condition, the time-gap condition, or both.
 
-- `Distance`: trigger by distance and show meters only.
-- `Time`: trigger by time gap and show seconds only.
-- `Both`: trigger when either distance or time gap condition is met, and show both values.
+- `None`: show no distance or time text; graphical alerts remain active and use the same trigger conditions as `Both`.
+- `Distance`: use only the distance condition and show metres only.
+- `Time`: use only the time-gap condition and show seconds only.
+- `Both`: show the graphical alert when either condition is met, and display both metres and seconds.
 
 ```ini
 RadarRangeMeters=70
 ```
 
-Distance alert range in meters. Used when `DisplayMode=Distance`; combined with the time condition when `DisplayMode=Both`.
+The distance-condition range in metres. A value of `70` means the distance condition is met when a front or rear car is no more than 70 metres away.
+
+The radar fades in proportionally over the outermost 15% of the configured distance range. With a 70-metre range, opacity is zero at 70 metres, partial at 65 metres, and fully visible at approximately 59.5 metres and below.
+
+- `DisplayMode=Distance`: only this distance condition controls the alert.
+- `DisplayMode=Both` or `None`: the graphical alert appears when either the distance condition or time-gap condition is met.
+- `DisplayMode=Time`: this distance condition is not used.
 
 ```ini
 TimeAlertSeconds=0.7
 ```
 
-Time-gap alert range in seconds. Used when `DisplayMode=Time`; combined with the distance condition when `DisplayMode=Both`. Ignored when `DisplayMode=Distance`.
+The time-gap-condition range in seconds. A value of `0.7` means the time-gap condition is met when a front or rear car is no more than 0.7 seconds away.
+
+The time-gap condition uses the same proportional region, scaled automatically from `TimeAlertSeconds`.
+
+```ini
+RadarFadeBandPercent=15
+```
+
+Controls the percentage of the outer distance/time range used for opacity transition, from `1` to `50`. At `15`, opacity increases proportionally through the outermost 15%, then remains fully visible through the inner 85%.
+
+- `DisplayMode=Time`: only this time-gap condition controls the alert.
+- `DisplayMode=Both` or `None`: the graphical alert appears when either the time-gap condition or distance condition is met.
+- `DisplayMode=Distance`: this time-gap condition is not used.
+
+For example, with `RadarRangeMeters=70` and `TimeAlertSeconds=0.7`: a car at 60 metres with a 1.0-second gap meets the distance condition; a car at 90 metres with a 0.5-second gap meets the time-gap condition. `Both` and `None` show the graphical alert in either case, but `None` shows no numeric values.
 
 ```ini
 NearDistanceMeters=20
 ```
 
 Close-warning range in meters. Front/rear alerts gradually change from green to red inside this range.
+
+```ini
+FrontGreenArcEnabled=true
+RearGreenArcEnabled=true
+```
+
+Control the front and rear green far-distance arcs independently. When an arc is disabled, that direction is shown only during the red close-warning phase; after the red sector ends, the radar and text fade out together. Side markers are unaffected.
 
 ```ini
 OverlayOpacity=92
@@ -291,12 +341,6 @@ LabelFontSize=22
 ```
 
 Font size for front/rear distance and time labels.
-
-```ini
-HideDelaySeconds=0.8
-```
-
-Delay before hiding the radar after nearby cars leave, in seconds.
 
 ## License
 

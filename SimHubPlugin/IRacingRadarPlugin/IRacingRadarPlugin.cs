@@ -25,6 +25,8 @@ namespace User.IRacingRadarPlugin
         private bool rearVisible;
         private bool frontFarVisible;
         private bool rearFarVisible;
+        private bool frontFarLabelVisible;
+        private bool rearFarLabelVisible;
         private double leftVisualOpacity;
         private double rightVisualOpacity;
         private double lastSideVisualUpdate;
@@ -46,7 +48,7 @@ namespace User.IRacingRadarPlugin
         private readonly string settingsPath = ResolveSettingsPath();
         private RadarSettings settings = RadarSettings.Default();
         private double nextSettingsRefresh;
-        private double radarHoldUntil;
+        private double radarVisualOpacity;
         private bool radarVisible;
 
         public PluginManager PluginManager { get; set; }
@@ -82,6 +84,8 @@ namespace User.IRacingRadarPlugin
             Add("RearVisible", false, "Show the nearest opponent behind.");
             Add("FrontFarVisible", false, "Show the green far-distance front semicircle.");
             Add("RearFarVisible", false, "Show the green far-distance rear semicircle.");
+            Add("FrontFarLabelVisible", false, "Show the far-distance front text independently from the green arc.");
+            Add("RearFarLabelVisible", false, "Show the far-distance rear text independently from the green arc.");
             Add("FrontTop", 35.0, "Vertical position of the nearest opponent ahead.");
             Add("RearTop", 151.0, "Vertical position of the nearest opponent behind.");
             Add("FrontRelativeMeters", 0.0, "Signed distance to the nearest opponent ahead.");
@@ -103,10 +107,14 @@ namespace User.IRacingRadarPlugin
             Add("FrontClosingSpeed", 0.0, "Smoothed front closing speed in m/s.");
             Add("RearClosingSpeed", 0.0, "Smoothed rear closing speed in m/s.");
             Add("LabelFontSize", settings.LabelFontSize, "Configured front/rear label font size.");
-            Add("DisplayMode", settings.DisplayMode, "Distance, Time, or Both." );
-            Add("RadarVisible", false, "True while at least one opponent is inside the configured radar range.");
+            Add("DisplayMode", settings.DisplayMode, "None, Distance, Time, or Both." );
+            Add("RadarVisible", false, "True while the smoothed radar opacity is above zero.");
+            Add("RadarVisualOpacity", 0.0, "Distance/time-driven overall radar opacity from 0 to 100.");
             Add("RadarRangeMeters", settings.RadarRangeMeters, "Configured distance alert threshold.");
             Add("TimeAlertSeconds", settings.TimeAlertSeconds, "Configured time-gap alert threshold.");
+            Add("RadarFadeBandPercent", settings.RadarFadeBandPercent, "Configured outer opacity transition band percentage.");
+            Add("FrontGreenArcEnabled", settings.FrontGreenArcEnabled, "Configured front green arc switch.");
+            Add("RearGreenArcEnabled", settings.RearGreenArcEnabled, "Configured rear green arc switch.");
             Add("NearDistanceMeters", settings.NearDistanceMeters, "Configured red marker distance.");
             Add("OverlayOpacity", settings.OverlayOpacity, "Configured overlay opacity percentage.");
             Add("SettingsPath", settingsPath, "Path to the live radar settings file.");
@@ -133,6 +141,8 @@ namespace User.IRacingRadarPlugin
                     rearVisible = false;
                     frontFarVisible = false;
                     rearFarVisible = false;
+                    frontFarLabelVisible = false;
+                    rearFarLabelVisible = false;
                     leftVisualOpacity = 0.0;
                     rightVisualOpacity = 0.0;
                     lastSideVisualUpdate = 0.0;
@@ -151,6 +161,7 @@ namespace User.IRacingRadarPlugin
                     frontMotion = MotionTracker.Empty;
                     rearMotion = MotionTracker.Empty;
                     lastProgressUpdate = 0.0;
+                    radarVisualOpacity = 0.0;
                     radarVisible = false;
                     Publish(false, nativeLeftRight);
                     return;
@@ -201,8 +212,12 @@ namespace User.IRacingRadarPlugin
                 bool sideClear = !leftDetected && !rightDetected;
                 frontVisible = frontOpponent != null && frontNearBlendTarget > 0.5 && sideClear;
                 rearVisible = rearOpponent != null && rearNearBlendTarget > 0.5 && sideClear;
-                frontFarVisible = frontOpponent != null && frontNearBlendTarget < 99.5 && sideClear;
-                rearFarVisible = rearOpponent != null && rearNearBlendTarget < 99.5 && sideClear;
+                frontFarLabelVisible = frontOpponent != null && frontNearBlendTarget < 99.5 && sideClear &&
+                    settings.FrontGreenArcEnabled;
+                rearFarLabelVisible = rearOpponent != null && rearNearBlendTarget < 99.5 && sideClear &&
+                    settings.RearGreenArcEnabled;
+                frontFarVisible = frontFarLabelVisible;
+                rearFarVisible = rearFarLabelVisible;
                 double leftRelative = double.NaN;
                 double rightRelative = double.NaN;
 
@@ -222,9 +237,17 @@ namespace User.IRacingRadarPlugin
                 left = UpdateSide(left, leftDetected, leftRelative, now, sideVisualElapsed);
                 right = UpdateSide(right, rightDetected, rightRelative, now, sideVisualElapsed);
 
-                bool hasNearbyCar = left.Visible || right.Visible || IsFinite(frontMeters) || IsFinite(rearMeters);
-                if (hasNearbyCar) radarHoldUntil = now + settings.HideDelaySeconds;
-                radarVisible = hasNearbyCar || now < radarHoldUntil;
+                double frontRadarOpacity = CalculateDirectionalRadarOpacity(
+                    frontOpponent != null && sideClear, settings.FrontGreenArcEnabled,
+                    frontVisible, frontNearBlendTarget, frontProximityOpacity);
+                double rearRadarOpacity = CalculateDirectionalRadarOpacity(
+                    rearOpponent != null && sideClear, settings.RearGreenArcEnabled,
+                    rearVisible, rearNearBlendTarget, rearProximityOpacity);
+                double sideRadarOpacity = leftDetected || rightDetected ? 100.0 : 0.0;
+                double radarTargetOpacity = Math.Max(sideRadarOpacity,
+                    Math.Max(frontRadarOpacity, rearRadarOpacity));
+                radarVisualOpacity = radarTargetOpacity;
+                radarVisible = radarVisualOpacity > 0.1;
                 Publish(true, nativeLeftRight);
             }
             catch (Exception ex)
@@ -293,20 +316,37 @@ namespace User.IRacingRadarPlugin
 
         private static double CalculateProximityOpacity(double meters, double seconds, RadarSettings settings)
         {
-            double distanceOpacity = CalculateThresholdOpacity(Math.Abs(meters), settings.RadarRangeMeters);
-            double timeOpacity = CalculateThresholdOpacity(Math.Abs(seconds), settings.TimeAlertSeconds);
+            double distanceOpacity = CalculateThresholdOpacity(Math.Abs(meters), settings.RadarRangeMeters,
+                settings.RadarFadeBandPercent);
+            double timeOpacity = CalculateThresholdOpacity(Math.Abs(seconds), settings.TimeAlertSeconds,
+                settings.RadarFadeBandPercent);
 
             if (settings.DisplayMode == "Distance") return distanceOpacity;
             if (settings.DisplayMode == "Time") return timeOpacity;
             return Math.Max(distanceOpacity, timeOpacity);
         }
 
-        private static double CalculateThresholdOpacity(double value, double threshold)
+        private static double CalculateThresholdOpacity(double value, double threshold, double fadeBandPercent)
         {
             if (!IsFinite(value) || threshold <= 0.0 || value > threshold) return 0.0;
-            double normalized = 1.0 - value / threshold;
-            return 25.0 + normalized * 75.0;
+            double ratio = Math.Max(0.01, Math.Min(0.50, fadeBandPercent / 100.0));
+            double fadeBand = Math.Max(0.0001, threshold * ratio);
+            double fullOpacityAt = threshold - fadeBand;
+            if (value <= fullOpacityAt) return 100.0;
+            return Math.Max(0.0, Math.Min(100.0,
+                (threshold - value) / fadeBand * 100.0));
         }
+        private static double CalculateDirectionalRadarOpacity(bool opponentPresent, bool greenArcEnabled,
+            bool nearVisible, double nearBlend, double proximityOpacity)
+        {
+            if (!opponentPresent) return 0.0;
+            double opacity = Math.Max(0.0, Math.Min(100.0, proximityOpacity));
+            if (greenArcEnabled) return opacity;
+            if (!nearVisible) return 0.0;
+            double blend = Math.Max(0.0, Math.Min(100.0, nearBlend));
+            return opacity * blend / 100.0;
+        }
+
         private static double CalculateAlertProgress(double meters, double seconds, RadarSettings settings)
         {
             double distanceProgress = CalculateThresholdProgress(Math.Abs(meters), settings.RadarRangeMeters);
@@ -411,6 +451,8 @@ namespace User.IRacingRadarPlugin
         }
         private string BuildDisplayText(string prefix, double meters, double seconds)
         {
+            if (settings.DisplayMode == "None") return string.Empty;
+
             string distance = IsFinite(meters)
                 ? Math.Abs(meters).ToString("0", CultureInfo.InvariantCulture) + "m"
                 : "--m";
@@ -514,8 +556,12 @@ namespace User.IRacingRadarPlugin
         {
             Set("Connected", connected);
             Set("RadarVisible", radarVisible);
+            Set("RadarVisualOpacity", radarVisualOpacity);
             Set("RadarRangeMeters", settings.RadarRangeMeters);
             Set("TimeAlertSeconds", settings.TimeAlertSeconds);
+            Set("RadarFadeBandPercent", settings.RadarFadeBandPercent);
+            Set("FrontGreenArcEnabled", settings.FrontGreenArcEnabled);
+            Set("RearGreenArcEnabled", settings.RearGreenArcEnabled);
             Set("NearDistanceMeters", settings.NearDistanceMeters);
             Set("OverlayOpacity", settings.OverlayOpacity);
             Set("LeftVisible", left.Visible);
@@ -530,6 +576,8 @@ namespace User.IRacingRadarPlugin
             Set("RearVisible", rearVisible);
             Set("FrontFarVisible", frontFarVisible);
             Set("RearFarVisible", rearFarVisible);
+            Set("FrontFarLabelVisible", frontFarLabelVisible);
+            Set("RearFarLabelVisible", rearFarLabelVisible);
             Set("FrontTop", RadarMath.CalculateCenterCarTop(frontMeters));
             Set("RearTop", RadarMath.CalculateCenterCarTop(rearMeters));
             Set("FrontRelativeMeters", IsFinite(frontMeters) ? frontMeters : 0.0);

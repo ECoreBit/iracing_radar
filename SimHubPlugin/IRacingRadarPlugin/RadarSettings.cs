@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 
@@ -9,8 +9,10 @@ namespace User.IRacingRadarPlugin
         public double RadarRangeMeters { get; private set; }
         public double NearDistanceMeters { get; private set; }
         public double TimeAlertSeconds { get; private set; }
+        public double RadarFadeBandPercent { get; private set; }
+        public bool FrontGreenArcEnabled { get; private set; }
+        public bool RearGreenArcEnabled { get; private set; }
         public double OverlayOpacity { get; private set; }
-        public double HideDelaySeconds { get; private set; }
         public string DisplayMode { get; private set; }
         public double LabelFontSize { get; private set; }
 
@@ -21,8 +23,10 @@ namespace User.IRacingRadarPlugin
                 RadarRangeMeters = 70.0,
                 NearDistanceMeters = 20.0,
                 TimeAlertSeconds = 0.7,
+                RadarFadeBandPercent = 15.0,
+                FrontGreenArcEnabled = true,
+                RearGreenArcEnabled = true,
                 OverlayOpacity = 92.0,
-                HideDelaySeconds = 0.8,
                 DisplayMode = "Both",
                 LabelFontSize = 22.0
             };
@@ -49,6 +53,17 @@ namespace User.IRacingRadarPlugin
                     continue;
                 }
 
+                if (key.Equals("FrontGreenArcEnabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.FrontGreenArcEnabled = ParseBoolean(text, value.FrontGreenArcEnabled);
+                    continue;
+                }
+                if (key.Equals("RearGreenArcEnabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.RearGreenArcEnabled = ParseBoolean(text, value.RearGreenArcEnabled);
+                    continue;
+                }
+
                 double parsed;
                 if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed)) continue;
 
@@ -58,10 +73,10 @@ namespace User.IRacingRadarPlugin
                     value.NearDistanceMeters = Clamp(parsed, 1.0, 100.0);
                 else if (key.Equals("TimeAlertSeconds", StringComparison.OrdinalIgnoreCase))
                     value.TimeAlertSeconds = Clamp(parsed, 0.1, 30.0);
+                else if (key.Equals("RadarFadeBandPercent", StringComparison.OrdinalIgnoreCase))
+                    value.RadarFadeBandPercent = Clamp(parsed, 1.0, 50.0);
                 else if (key.Equals("OverlayOpacity", StringComparison.OrdinalIgnoreCase))
                     value.OverlayOpacity = Clamp(parsed, 0.0, 100.0);
-                else if (key.Equals("HideDelaySeconds", StringComparison.OrdinalIgnoreCase))
-                    value.HideDelaySeconds = Clamp(parsed, 0.0, 5.0);
                 else if (key.Equals("LabelFontSize", StringComparison.OrdinalIgnoreCase))
                     value.LabelFontSize = Clamp(parsed, 10.0, 36.0);
             }
@@ -72,9 +87,21 @@ namespace User.IRacingRadarPlugin
 
         private static string NormalizeDisplayMode(string value)
         {
+            if (value.Equals("None", StringComparison.OrdinalIgnoreCase)) return "None";
             if (value.Equals("Distance", StringComparison.OrdinalIgnoreCase)) return "Distance";
             if (value.Equals("Time", StringComparison.OrdinalIgnoreCase)) return "Time";
             return "Both";
+        }
+
+        private static bool ParseBoolean(string value, bool fallback)
+        {
+            bool parsed;
+            if (bool.TryParse(value, out parsed)) return parsed;
+            if (value.Equals("1") || value.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("on", StringComparison.OrdinalIgnoreCase)) return true;
+            if (value.Equals("0") || value.Equals("no", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("off", StringComparison.OrdinalIgnoreCase)) return false;
+            return fallback;
         }
 
         private static double Clamp(double value, double minimum, double maximum)
