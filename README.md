@@ -4,7 +4,11 @@
 
 An iRacing radar overlay for SimHub. Download the prebuilt release package, copy the DLL, settings file, and overlay files into the SimHub folders, then enable the overlay in SimHub.
 
-![Radar preview](docs/radar-preview.png)
+## 效果预览 / Preview
+
+![Radar preview 1](docs/radar-preview.png)
+
+![Radar preview 2](docs/radar-preview2.png)
 
 ## 中文说明
 
