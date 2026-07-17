@@ -185,8 +185,8 @@ namespace User.IRacingRadarPlugin
                     rightRelative = nearby[0];
                 }
 
-                left = UpdateSide(left, leftDetected, leftRelative, now);
-                right = UpdateSide(right, rightDetected, rightRelative, now);
+                left = UpdateSide(left, leftDetected, leftRelative, now, sideVisualElapsed);
+                right = UpdateSide(right, rightDetected, rightRelative, now, sideVisualElapsed);
 
                 bool hasNearbyCar = left.Visible || right.Visible || IsFinite(frontMeters) || IsFinite(rearMeters);
                 if (hasNearbyCar) radarHoldUntil = now + settings.HideDelaySeconds;
@@ -386,12 +386,20 @@ namespace User.IRacingRadarPlugin
             }
         }
 
-        private static SideState UpdateSide(SideState previous, bool detected, double relativeMeters, double now)
+        private static SideState UpdateSide(
+            SideState previous,
+            bool detected,
+            double relativeMeters,
+            double now,
+            double elapsed)
         {
             if (detected)
             {
                 double resolved = IsFinite(relativeMeters) ? relativeMeters : previous.RelativeMeters;
-                double top = RadarMath.CalculateTopFromRelativeMeters(resolved, previous.Top);
+                double targetTop = RadarMath.CalculateTopFromRelativeMeters(resolved, previous.Top);
+                double top = previous.Visible
+                    ? RadarMath.SmoothSideTop(previous.Top, targetTop, elapsed)
+                    : targetTop;
                 return new SideState(true, top, resolved, now + HoldSeconds);
             }
 

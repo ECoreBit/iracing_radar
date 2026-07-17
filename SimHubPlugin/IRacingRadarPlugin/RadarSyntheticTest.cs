@@ -40,8 +40,12 @@ internal static class RadarSyntheticTest
         Console.WriteLine("beside 0m top=" + beside);
         Console.WriteLine("behind +6m top=" + behind);
         bool pass = ahead < beside && beside < behind;
+        MethodInfo smooth = math.GetMethod("SmoothSideTop");
+        double smoothed = (double)smooth.Invoke(null, new object[] { beside, behind, 0.016 });
+        bool smoothPass = smoothed > beside && smoothed < behind;
         Console.WriteLine(pass ? "PASS synthetic radar positions" : "FAIL synthetic radar positions");
-        return pass ? 0 : 2;
+        Console.WriteLine(smoothPass ? "PASS side position smoothing" : "FAIL side position smoothing");
+        return pass && smoothPass ? 0 : 2;
     }
 
     private static void AddPit(StatusDataBase data, double meters)

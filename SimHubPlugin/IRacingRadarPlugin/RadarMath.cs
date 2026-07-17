@@ -12,6 +12,7 @@ namespace User.IRacingRadarPlugin
         private const double CenterCarBaseTop = 109.0;
         private const double CenterCarMaximumOffset = 94.0;
         private const double RadarRangeMeters = 70.0;
+        private const double SidePositionTimeConstantSeconds = 0.08;
 
         public static double CalculateTopFromRelativeMeters(double relativeMeters, double previousTop)
         {
@@ -22,6 +23,19 @@ namespace User.IRacingRadarPlugin
 
             // SimHub/iRacing RelativeDistanceToPlayer is negative ahead and positive behind.
             return Clamp(CenterTop + relativeMeters * SidePixelsPerMeter, MinimumTop, MaximumTop);
+        }
+
+        public static double SmoothSideTop(double currentTop, double targetTop, double elapsedSeconds)
+        {
+            if (!IsFinite(targetTop))
+            {
+                return IsFinite(currentTop) ? Clamp(currentTop, MinimumTop, MaximumTop) : CenterTop;
+            }
+
+            if (!IsFinite(currentTop)) currentTop = targetTop;
+            elapsedSeconds = Clamp(elapsedSeconds, 0.0, 0.25);
+            double alpha = 1.0 - Math.Exp(-elapsedSeconds / SidePositionTimeConstantSeconds);
+            return Clamp(currentTop + (targetTop - currentTop) * alpha, MinimumTop, MaximumTop);
         }
 
         public static double CalculateCenterCarTop(double relativeMeters)

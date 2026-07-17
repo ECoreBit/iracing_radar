@@ -4764,16 +4764,16 @@
                                       {
                                           "$type":  "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
                                           "IsRectangleItem":  true,
-                                          "BackgroundColor":  "#55FF1220",
+                                          "BackgroundColor":  "#70FF3542",
                                           "BorderColor":  "#00FFFFFF",
-                                          "Height":  50,
-                                          "Left":  173,
-                                          "Opacity":  24,
-                                          "Top":  105,
+                                          "Height":  192,
+                                          "Left":  175,
+                                          "Opacity":  30,
+                                          "Top":  34,
                                           "Visible":  false,
                                           "BlinkPhasisInverted":  false,
-                                          "Width":  26,
-                                          "Name":  "Left opponent glow",
+                                          "Width":  2,
+                                          "Name":  "Left position rail",
                                           "RenderingSkip":  0,
                                           "MinimumRefreshIntervalMS":  0,
                                           "Bindings":  {
@@ -4786,20 +4786,11 @@
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Visible"
                                                                        },
-                                                           "Top":  {
-                                                                       "Formula":  {
-                                                                                       "JSExt":  0,
-                                                                                       "Interpreter":  1,
-                                                                                       "Expression":  "return isnull($prop(\u0027IRacingRadarPlugin.LeftTop\u0027), 109)-4;"
-                                                                                   },
-                                                                       "Mode":  2,
-                                                                       "TargetPropertyName":  "Top"
-                                                                   },
                                                            "Opacity":  {
                                                                            "Formula":  {
                                                                                            "JSExt":  0,
                                                                                            "Interpreter":  1,
-                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.LeftVisualOpacity\u0027),0))); return 24*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
+                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.LeftVisualOpacity\u0027),0))); return 30*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
                                                                                        },
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
@@ -4809,16 +4800,16 @@
                                       {
                                           "$type":  "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
                                           "IsRectangleItem":  true,
-                                          "BackgroundColor":  "#55FF1220",
+                                          "BackgroundColor":  "#70FF3542",
                                           "BorderColor":  "#00FFFFFF",
-                                          "Height":  50,
-                                          "Left":  221,
-                                          "Opacity":  24,
-                                          "Top":  105,
+                                          "Height":  192,
+                                          "Left":  243,
+                                          "Opacity":  30,
+                                          "Top":  34,
                                           "Visible":  false,
                                           "BlinkPhasisInverted":  false,
-                                          "Width":  26,
-                                          "Name":  "Right opponent glow",
+                                          "Width":  2,
+                                          "Name":  "Right position rail",
                                           "RenderingSkip":  0,
                                           "MinimumRefreshIntervalMS":  0,
                                           "Bindings":  {
@@ -4831,20 +4822,11 @@
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Visible"
                                                                        },
-                                                           "Top":  {
-                                                                       "Formula":  {
-                                                                                       "JSExt":  0,
-                                                                                       "Interpreter":  1,
-                                                                                       "Expression":  "return isnull($prop(\u0027IRacingRadarPlugin.RightTop\u0027), 109)-4;"
-                                                                                   },
-                                                                       "Mode":  2,
-                                                                       "TargetPropertyName":  "Top"
-                                                                   },
                                                            "Opacity":  {
                                                                            "Formula":  {
                                                                                            "JSExt":  0,
                                                                                            "Interpreter":  1,
-                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.RightVisualOpacity\u0027),0))); return 24*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
+                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.RightVisualOpacity\u0027),0))); return 30*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
                                                                                        },
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
@@ -4854,11 +4836,11 @@
                                       {
                                           "$type":  "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
                                           "IsRectangleItem":  true,
-                                          "BackgroundColor":  "#D9F51C25",
+                                          "BackgroundColor":  "#E8FF2733",
                                           "BorderColor":  "#00FFFFFF",
                                           "Height":  42,
-                                          "Left":  177,
-                                          "Opacity":  82,
+                                          "Left":  167,
+                                          "Opacity":  92,
                                           "Top":  109,
                                           "Visible":  false,
                                           "BlinkPhasisInverted":  false,
@@ -4889,21 +4871,32 @@
                                                                            "Formula":  {
                                                                                            "JSExt":  0,
                                                                                            "Interpreter":  1,
-                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.LeftVisualOpacity\u0027),0))); return 82*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
+                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.LeftVisualOpacity\u0027),0))); return 92*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
                                                                                        },
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
                                                                        }
-                                                       }
+                                                       },
+                                          "BorderStyle":  {
+                                                              "BorderColor":  "#B8FF7A82",
+                                                              "BorderTop":  1,
+                                                              "BorderBottom":  1,
+                                                              "BorderLeft":  1,
+                                                              "BorderRight":  1,
+                                                              "RadiusTopLeft":  7,
+                                                              "RadiusTopRight":  7,
+                                                              "RadiusBottomLeft":  7,
+                                                              "RadiusBottomRight":  7
+                                                          }
                                       },
                                       {
                                           "$type":  "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
                                           "IsRectangleItem":  true,
-                                          "BackgroundColor":  "#D9F51C25",
+                                          "BackgroundColor":  "#E8FF2733",
                                           "BorderColor":  "#00FFFFFF",
                                           "Height":  42,
-                                          "Left":  225,
-                                          "Opacity":  82,
+                                          "Left":  235,
+                                          "Opacity":  92,
                                           "Top":  109,
                                           "Visible":  false,
                                           "BlinkPhasisInverted":  false,
@@ -4934,30 +4927,41 @@
                                                                            "Formula":  {
                                                                                            "JSExt":  0,
                                                                                            "Interpreter":  1,
-                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.RightVisualOpacity\u0027),0))); return 82*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
+                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.RightVisualOpacity\u0027),0))); return 92*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
                                                                                        },
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
                                                                        }
-                                                       }
+                                                       },
+                                          "BorderStyle":  {
+                                                              "BorderColor":  "#B8FF7A82",
+                                                              "BorderTop":  1,
+                                                              "BorderBottom":  1,
+                                                              "BorderLeft":  1,
+                                                              "BorderRight":  1,
+                                                              "RadiusTopLeft":  7,
+                                                              "RadiusTopRight":  7,
+                                                              "RadiusBottomLeft":  7,
+                                                              "RadiusBottomRight":  7
+                                                          }
                                       },
                                       {
                                           "$type":  "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
                                           "IsTextItem":  true,
                                           "Font":  "Segoe UI",
                                           "FontWeight":  "Bold",
-                                          "FontSize":  12,
+                                          "FontSize":  14,
                                           "Text":  "0m",
-                                          "TextColor":  "#FFFFFFFF",
+                                          "TextColor":  "#E8FFFFFF",
                                           "HorizontalAlignment":  1,
                                           "VerticalAlignment":  1,
                                           "BackgroundColor":  "#00000000",
                                           "Height":  30,
-                                          "Left":  93,
+                                          "Left":  84,
                                           "Top":  93,
                                           "Visible":  false,
                                           "BlinkPhasisInverted":  false,
-                                          "Width":  72,
+                                          "Width":  76,
                                           "Name":  "Left distance",
                                           "RenderingSkip":  0,
                                           "MinimumRefreshIntervalMS":  0,
@@ -4984,7 +4988,7 @@
                                                                         "Formula":  {
                                                                                         "JSExt":  0,
                                                                                         "Interpreter":  1,
-                                                                                        "Expression":  "return format(Math.abs(isnull($prop(\u0027IRacingRadarPlugin.LeftRelativeMeters\u0027),0)),\u00270\u0027) + \u0027m\u0027;"
+                                                                                        "Expression":  "const v=isnull($prop(\u0027IRacingRadarPlugin.LeftRelativeMeters\u0027),0); return format(Math.abs(v),\u00270.0\u0027) + \u0027m\u0027;"
                                                                                     },
                                                                         "Mode":  2,
                                                                         "TargetPropertyName":  "Text"
@@ -4993,7 +4997,7 @@
                                                                            "Formula":  {
                                                                                            "JSExt":  0,
                                                                                            "Interpreter":  1,
-                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.LeftVisualOpacity\u0027),0))); return 100*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
+                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.LeftVisualOpacity\u0027),0))); return 86*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
                                                                                        },
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
@@ -5006,18 +5010,18 @@
                                           "IsTextItem":  true,
                                           "Font":  "Segoe UI",
                                           "FontWeight":  "Bold",
-                                          "FontSize":  12,
+                                          "FontSize":  14,
                                           "Text":  "0m",
-                                          "TextColor":  "#FFFFFFFF",
+                                          "TextColor":  "#E8FFFFFF",
                                           "HorizontalAlignment":  1,
                                           "VerticalAlignment":  1,
                                           "BackgroundColor":  "#00000000",
                                           "Height":  30,
-                                          "Left":  255,
+                                          "Left":  260,
                                           "Top":  93,
                                           "Visible":  false,
                                           "BlinkPhasisInverted":  false,
-                                          "Width":  72,
+                                          "Width":  76,
                                           "Name":  "Right distance",
                                           "RenderingSkip":  0,
                                           "MinimumRefreshIntervalMS":  0,
@@ -5044,7 +5048,7 @@
                                                                         "Formula":  {
                                                                                         "JSExt":  0,
                                                                                         "Interpreter":  1,
-                                                                                        "Expression":  "return format(Math.abs(isnull($prop(\u0027IRacingRadarPlugin.RightRelativeMeters\u0027),0)),\u00270\u0027) + \u0027m\u0027;"
+                                                                                        "Expression":  "const v=isnull($prop(\u0027IRacingRadarPlugin.RightRelativeMeters\u0027),0); return format(Math.abs(v),\u00270.0\u0027) + \u0027m\u0027;"
                                                                                     },
                                                                         "Mode":  2,
                                                                         "TargetPropertyName":  "Text"
@@ -5053,7 +5057,7 @@
                                                                            "Formula":  {
                                                                                            "JSExt":  0,
                                                                                            "Interpreter":  1,
-                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.RightVisualOpacity\u0027),0))); return 100*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
+                                                                                           "Expression":  "const s=Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.RightVisualOpacity\u0027),0))); return 86*s/100*Math.max(0,Math.min(100,isnull($prop(\u0027IRacingRadarPlugin.OverlayOpacity\u0027),92)))/100;"
                                                                                        },
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
@@ -5184,7 +5188,7 @@
                                       {
                                           "$type":  "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
                                           "IsRectangleItem":  true,
-                                          "BackgroundColor":  "#FF8F98A3",
+                                          "BackgroundColor":  "#FF98A2AE",
                                           "BorderColor":  "#00FFFFFF",
                                           "Height":  42,
                                           "Left":  201,
@@ -5215,7 +5219,18 @@
                                                                            "Mode":  2,
                                                                            "TargetPropertyName":  "Opacity"
                                                                        }
-                                                       }
+                                                       },
+                                          "BorderStyle":  {
+                                                              "BorderColor":  "#B8E8EDF2",
+                                                              "BorderTop":  1,
+                                                              "BorderBottom":  1,
+                                                              "BorderLeft":  1,
+                                                              "BorderRight":  1,
+                                                              "RadiusTopLeft":  7,
+                                                              "RadiusTopRight":  7,
+                                                              "RadiusBottomLeft":  7,
+                                                              "RadiusBottomRight":  7
+                                                          }
                                       }
                                   ]
                     }
