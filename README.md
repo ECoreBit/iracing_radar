@@ -65,6 +65,7 @@ C:\Program Files (x86)\SimHub
 SimHub\
 ├─ User.IRacingRadarPlugin.dll
 ├─ IRacingRadar.settings.ini
+├─ IRacingRadar.Configurator.exe
 └─ DashTemplates\
    └─ iRacing Radar\
       ├─ iRacing Radar.djson
@@ -73,10 +74,14 @@ SimHub\
 
 解压完成后：
 
-1. 启动 SimHub。
-2. 在 SimHub 插件列表中启用 **iRacing Radar**。
-3. 在 Dash Studio / Overlays 中启动 **iRacing Radar**。
-4. 启动 iRacing。建议使用无边框或窗口模式，方便 Windows overlay 正常显示。
+1. 运行 **IRacingRadar.Configurator.exe**。出现权限提示时选择允许，以便工具保存 SimHub 根目录中的配置文件。
+2. 在左侧调整参数，右侧会使用与 SimHub Overlay 相同的图像资源实时预览。
+3. 通过顶部菜单切换中文或英文，并选择白天或夜间模式。语言和主题会立即保存，下次启动配置工具时自动恢复。
+4. 点击“动态演示”可查看车辆从后方接近、左侧并排并从前方远离的完整过程；也可以直接点击后方绿色、后方红色、左侧并排、前方红色或前方绿色五个场景按钮。
+5. 关闭前方或后方绿色提示条后，对应的预览按钮会变灰且无法点击，动态演示也会跳过该阶段。
+6. 点击“保存设置”。如果 SimHub 未运行，工具会直接保存；如果 SimHub 正在运行，可以选择立即重启 SimHub、稍后手动重启或取消保存。选择立即重启后，配置工具会自动完成重启。
+7. 在 SimHub 插件列表中启用 **iRacing Radar**，然后在 Dash Studio / Overlays 中启动同名 Overlay。
+8. 启动 iRacing。建议使用无边框或窗口模式，方便 Windows overlay 正常显示。
 
 ### 配置文件位置
 
@@ -93,18 +98,24 @@ C:\Program Files (x86)\SimHub\IRacingRadar.settings.ini
 %USERPROFILE%\Documents\iraing_Rader\IRacingRadar.settings.ini
 ```
 
+配置工具的语言和主题偏好单独保存在：
+
+```text
+%LOCALAPPDATA%\iRacingRadar\Configurator.settings.ini
+```
+
 ### 配置项说明
 
 ```ini
 DisplayMode=Both
 ```
 
-控制前后车辆显示哪些数字，并决定使用距离条件、时间差条件还是两者来显示图形警示。
+控制前后车辆显示哪些数字，并决定使用距离条件、相对时间条件还是两者来显示图形警示。
 
 - `None`：不显示距离和时差文字；图形警示仍然正常显示，并采用与 `Both` 相同的触发条件。
 - `Distance`：只看距离条件，只显示米数。
-- `Time`：只看时间差条件，只显示秒数。
-- `Both`：距离或时间差只要有一个达到设定范围，就显示图形警示，并同时显示米数和秒数。
+- `Time`：只看相对时间条件，只显示秒数。
+- `Both`：距离或相对时间只要有一个达到设定范围，就显示图形警示，并同时显示米数和秒数。
 
 ```ini
 RadarRangeMeters=70
@@ -115,31 +126,31 @@ RadarRangeMeters=70
 雷达会在距离范围最外侧的 15% 区间内按比例渐显。例如范围为 70 米时，70 米处透明度为 0，65 米处于渐显状态，约 59.5 米及以内完全显示。
 
 - `DisplayMode=Distance`：只根据这个距离判断是否提示。
-- `DisplayMode=Both` 或 `None`：距离条件和时间差条件满足任意一个，都会显示图形警示。
+- `DisplayMode=Both` 或 `None`：距离条件和相对时间条件满足任意一个，都会显示图形警示。
 - `DisplayMode=Time`：不使用这个距离条件。
 
 ```ini
 TimeAlertSeconds=0.7
 ```
 
-**这是时间差提示范围。** 它决定前后车辆与本车的时间差达到多少秒时开始提示。设置为 `0.7` 时，时间差大于 0.7 秒不提示，时间差不超过 0.7 秒就进入提示范围。
+**这是相对时间提示范围。** 它决定前后车辆与本车的相对时间达到多少秒时开始提示。设置为 `0.7` 时，相对时间大于 0.7 秒不提示，相对时间不超过 0.7 秒就进入提示范围。
 
 这个参数是否使用，由 `DisplayMode` 决定：
 
 - `Time`：只使用 `TimeAlertSeconds` 判断是否提示。
 - `Both`：同时检查 `TimeAlertSeconds` 和 `RadarRangeMeters`，任意一个条件满足就提示。
 - `Distance`：不使用 `TimeAlertSeconds`。
-- `None`：判断方式与 `Both` 相同，但隐藏距离和时间差文字。
+- `None`：判断方式与 `Both` 相同，但隐藏距离和相对时间文字。
 
 因此，`TimeAlertSeconds` 只需要配合 `DisplayMode` 使用，不需要配合 `RadarFadeBandPercent`。
 
-例如同时设置 `RadarRangeMeters=70` 和 `TimeAlertSeconds=0.7`：车辆相距 60 米但时间差为 1.0 秒时，距离条件成立；车辆相距 90 米但时间差为 0.5 秒时，时间差条件成立。`Both` 和 `None` 在这两种情况下都会显示图形警示，但 `None` 不显示任何数字。
+例如同时设置 `RadarRangeMeters=70` 和 `TimeAlertSeconds=0.7`：车辆相距 60 米但相对时间为 1.0 秒时，距离条件成立；车辆相距 90 米但相对时间为 0.5 秒时，相对时间条件成立。`Both` 和 `None` 在这两种情况下都会显示图形警示，但 `None` 不显示任何数字。
 
 ```ini
 RadarFadeBandPercent=15
 ```
 
-**这是独立的雷达透明度设置。** 它控制雷达进入或离开提示范围时，使用多大比例的范围逐渐显示或隐藏。设置为 `15` 表示使用提示范围边缘的 15% 改变透明度，剩余范围内完全显示。它不会修改距离或时间差的触发值，也不需要与 `TimeAlertSeconds` 配套使用。
+**这是独立的雷达透明度设置。** 它控制雷达进入或离开提示范围时，使用多大比例的范围逐渐显示或隐藏。设置为 `15` 表示使用提示范围边缘的 15% 改变透明度，剩余范围内完全显示。它不会修改距离或相对时间的触发值，也不需要与 `TimeAlertSeconds` 配套使用。
 
 ```ini
 NearDistanceMeters=20
@@ -229,6 +240,7 @@ The archive already contains the complete directory structure. You do not need t
 SimHub\
 ├─ User.IRacingRadarPlugin.dll
 ├─ IRacingRadar.settings.ini
+├─ IRacingRadar.Configurator.exe
 └─ DashTemplates\
    └─ iRacing Radar\
       ├─ iRacing Radar.djson
@@ -237,10 +249,14 @@ SimHub\
 
 After extracting:
 
-1. Start SimHub.
-2. Enable the **iRacing Radar** plugin.
-3. Start **iRacing Radar** from Dash Studio / Overlays.
-4. Start iRacing. Borderless or windowed mode is recommended for Windows overlays.
+1. Run **IRacingRadar.Configurator.exe**. Allow the elevation prompt so the tool can save the settings file in the SimHub root folder.
+2. Adjust settings on the left. The preview on the right uses the same image assets as the SimHub Overlay.
+3. Use the top menus to switch language and choose day or night mode. Language and theme preferences are saved immediately and restored the next time the configurator starts.
+4. Select **Play demo** to watch a car approach from behind, run alongside on the left, and move away in front, or click one of five scene buttons: rear green, rear red, left alongside, front red, or front green.
+5. Disabling the front or rear green alert greys out its preview button and removes that stage from the dynamic demo.
+6. Select **Save**. If SimHub is not running, the settings are saved immediately. If it is running, choose **Restart now**, **Restart later**, or **Cancel**. The configurator automatically restarts SimHub when **Restart now** is selected.
+7. Enable the **iRacing Radar** plugin in SimHub, then start the matching Overlay from Dash Studio / Overlays.
+8. Start iRacing. Borderless or windowed mode is recommended for Windows overlays.
 
 ### Settings file location
 
@@ -255,6 +271,12 @@ The plugin reads this file first because it is next to `User.IRacingRadarPlugin.
 ```text
 %USERPROFILE%\Documents\iRacingRadar\IRacingRadar.settings.ini
 %USERPROFILE%\Documents\iraing_Rader\IRacingRadar.settings.ini
+```
+
+The configurator stores its language and theme preferences separately at:
+
+```text
+%LOCALAPPDATA%\iRacingRadar\Configurator.settings.ini
 ```
 
 ### Settings

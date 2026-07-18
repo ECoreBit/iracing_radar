@@ -26,3 +26,5 @@ Push-Location $testDir
 try { & $testExe } finally { Pop-Location }
 if ($LASTEXITCODE -ne 0) { throw "Synthetic test failed with exit code $LASTEXITCODE." }
 
+
+& (Join-Path $PSScriptRoot 'test-configurator.ps1')

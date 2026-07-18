@@ -19,6 +19,7 @@ if (-not $stageFull.StartsWith($releaseRootFull, [StringComparison]::OrdinalIgno
 }
 
 & (Join-Path $PSScriptRoot 'build-plugin.ps1') -SimHubPath $SimHubPath
+& (Join-Path $PSScriptRoot 'build-configurator.ps1')
 
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
@@ -26,6 +27,7 @@ New-Item -ItemType Directory -Path $overlayStage -Force | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $root 'SimHubPlugin\IRacingRadarPlugin\bin\Release\User.IRacingRadarPlugin.dll') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'IRacingRadar.settings.ini') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root 'Configurator\bin\Release\IRacingRadar.Configurator.exe') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'SimHubPlugin\Overlay\iRacing Radar.djson') -Destination $overlayStage
 Copy-Item -LiteralPath (Join-Path $root 'SimHubPlugin\Overlay\iRacing Radar.djson.ressources') -Destination $overlayStage
 

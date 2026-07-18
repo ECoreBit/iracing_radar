@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -54,10 +54,10 @@ for ($index = 0; $index -lt $levelCount; $index++) {
         $graphics.Clear([System.Drawing.Color]::Transparent)
 
         if ($direction -eq 'Front') {
-            $bounds = New-Object System.Drawing.RectangleF 3, 3, 254, 254
+            $bounds = New-Object System.Drawing.RectangleF 8, 8, 244, 244
             $startAngle = 270.0 - $span / 2.0
         } else {
-            $bounds = New-Object System.Drawing.RectangleF 3, -127, 254, 254
+            $bounds = New-Object System.Drawing.RectangleF 8, -122, 244, 244
             $startAngle = 90.0 - $span / 2.0
         }
 
