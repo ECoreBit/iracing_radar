@@ -6,7 +6,7 @@
 
 ## 中文说明
 
-一个用于 iRacing 的 SimHub 车辆雷达覆盖层。下载编译好的发布包后，只需要把 DLL、配置文件和 overlay 文件复制到 SimHub 指定目录即可使用。
+一个用于 iRacing 的 SimHub 车辆雷达覆盖层。下载编译好的发布包后，直接解压到 SimHub 根目录即可使用。
 
 > **重要提示：** 当车辆位于本车侧面时，雷达只能显示车辆在左侧还是右侧，以及它相对本车偏前或偏后；**无法提供两车之间的实际横向距离**。侧面红色标记的位置和间隔不能作为横向间距或碰撞余量使用。
 
@@ -51,36 +51,27 @@
 - 红色文字表示车辆正在靠近，绿色文字表示车辆正在远离。
 - 侧面车辆只显示红色位置标记，不显示文字数值。
 
-### 需要复制哪些文件
+### 安装
 
-发布包里应该包含这些文件：
-
-```text
-User.IRacingRadarPlugin.dll
-IRacingRadar.settings.ini
-iRacing Radar.djson
-iRacing Radar.djson.ressources
-```
-
-### 文件放在哪里
-
-先关闭 SimHub，然后复制文件。
-
-把插件 DLL 和配置文件放到 SimHub 根目录：
+先关闭 SimHub。下载发布包后，把 ZIP **直接解压到 SimHub 根目录**：
 
 ```text
-C:\Program Files (x86)\SimHub\User.IRacingRadarPlugin.dll
-C:\Program Files (x86)\SimHub\IRacingRadar.settings.ini
+C:\Program Files (x86)\SimHub
 ```
 
-把 overlay 文件放到 SimHub 的 DashTemplates 目录。没有 `iRacing Radar` 文件夹就手动创建：
+压缩包已经包含完整目录结构，不需要创建文件夹或分别移动文件。解压后的结构应为：
 
 ```text
-C:\Program Files (x86)\SimHub\DashTemplates\iRacing Radar\iRacing Radar.djson
-C:\Program Files (x86)\SimHub\DashTemplates\iRacing Radar\iRacing Radar.djson.ressources
+SimHub\
+├─ User.IRacingRadarPlugin.dll
+├─ IRacingRadar.settings.ini
+└─ DashTemplates\
+   └─ iRacing Radar\
+      ├─ iRacing Radar.djson
+      └─ iRacing Radar.djson.ressources
 ```
 
-复制完成后：
+解压完成后：
 
 1. 启动 SimHub。
 2. 在 SimHub 插件列表中启用 **iRacing Radar**。
@@ -179,7 +170,7 @@ LabelFontSize=22
 
 ## English
 
-An iRacing radar overlay for SimHub. Download the prebuilt release package, copy the DLL, settings file, and overlay files into the SimHub folders, then enable the overlay in SimHub.
+An iRacing radar overlay for SimHub. Download the prebuilt release package and extract it directly into the SimHub root folder.
 
 > **Important:** When a car is alongside, the radar can only show whether it is on the left or right and whether it is relatively ahead or behind. It **cannot provide the actual lateral distance between the two cars**. Do not use the position or spacing of the red side marker as a measure of lateral clearance or collision margin.
 
@@ -224,36 +215,27 @@ After the opponent passes, the warning appears above the radar. Green distance a
 - Red text means the car is approaching; green text means it is moving away.
 - Side-by-side cars use red position markers without text values.
 
-### Files to copy
+### Installation
 
-The prebuilt release package should include these files:
-
-```text
-User.IRacingRadarPlugin.dll
-IRacingRadar.settings.ini
-iRacing Radar.djson
-iRacing Radar.djson.ressources
-```
-
-### Where to put the files
-
-Close SimHub first, then copy the files.
-
-Put the plugin DLL and settings file in the SimHub root folder:
+Close SimHub first. Download the release package, then extract the ZIP **directly into the SimHub root folder**:
 
 ```text
-C:\Program Files (x86)\SimHub\User.IRacingRadarPlugin.dll
-C:\Program Files (x86)\SimHub\IRacingRadar.settings.ini
+C:\Program Files (x86)\SimHub
 ```
 
-Put the overlay files in the SimHub DashTemplates folder. Create the `iRacing Radar` folder if it does not exist:
+The archive already contains the complete directory structure. You do not need to create folders or move individual files. The extracted layout should be:
 
 ```text
-C:\Program Files (x86)\SimHub\DashTemplates\iRacing Radar\iRacing Radar.djson
-C:\Program Files (x86)\SimHub\DashTemplates\iRacing Radar\iRacing Radar.djson.ressources
+SimHub\
+├─ User.IRacingRadarPlugin.dll
+├─ IRacingRadar.settings.ini
+└─ DashTemplates\
+   └─ iRacing Radar\
+      ├─ iRacing Radar.djson
+      └─ iRacing Radar.djson.ressources
 ```
 
-After copying:
+After extracting:
 
 1. Start SimHub.
 2. Enable the **iRacing Radar** plugin.
