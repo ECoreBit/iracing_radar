@@ -18,6 +18,8 @@ namespace User.IRacingRadarPlugin
         private const double MotionSmoothingSeconds = 0.30;
         private const double MotionEnterMetersPerSecond = 0.45;
         private const double MotionNeutralMetersPerSecond = 0.20;
+        private const double CatchEstimateMinClosingSpeed = 2.0;
+        private const double CatchEstimateMaxSeconds = 15.0;
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private SideState left = SideState.Hidden;
         private SideState right = SideState.Hidden;
@@ -33,6 +35,7 @@ namespace User.IRacingRadarPlugin
         private double frontMeters;
         private double rearMeters;
         private double frontSeconds;
+        private double frontCatchSeconds;
         private double rearSeconds;
         private double frontProximityOpacity;
         private double rearProximityOpacity;
@@ -105,6 +108,8 @@ namespace User.IRacingRadarPlugin
             Add("FrontMotionState", 0, "1=closing, -1=separating, 0=steady.");
             Add("RearMotionState", 0, "1=closing, -1=separating, 0=steady.");
             Add("FrontClosingSpeed", 0.0, "Smoothed front closing speed in m/s.");
+            Add("FrontCatchSeconds", 0.0, "Estimated seconds until catching the front car.");
+            Add("CatchEstimateEnabled", settings.CatchEstimateEnabled, "Configured catch-time estimate switch.");
             Add("RearClosingSpeed", 0.0, "Smoothed rear closing speed in m/s.");
             Add("LabelFontSize", settings.LabelFontSize, "Configured front/rear label font size.");
             Add("DisplayMode", settings.DisplayMode, "None, Distance, Time, or Both." );
@@ -149,6 +154,7 @@ namespace User.IRacingRadarPlugin
                     frontMeters = double.NaN;
                     rearMeters = double.NaN;
                     frontSeconds = double.NaN;
+                    frontCatchSeconds = double.NaN;
                     rearSeconds = double.NaN;
                     frontProximityOpacity = 0.0;
                     rearProximityOpacity = 0.0;
@@ -184,6 +190,7 @@ namespace User.IRacingRadarPlugin
                 rearSeconds = ReadOpponentGap(rearOpponent);
                 frontMotion = UpdateMotion(frontMotion, frontOpponent, frontMeters, now);
                 rearMotion = UpdateMotion(rearMotion, rearOpponent, rearMeters, now);
+                frontCatchSeconds = CalculateCatchSeconds(frontMeters, frontMotion.ClosingSpeed);
                 frontProximityOpacity = CalculateProximityOpacity(frontMeters, frontSeconds, settings);
                 rearProximityOpacity = CalculateProximityOpacity(rearMeters, rearSeconds, settings);
                 double progressElapsed = lastProgressUpdate > 0.0 ? now - lastProgressUpdate : 0.016;
@@ -265,9 +272,12 @@ namespace User.IRacingRadarPlugin
         {
             Opponent nearest = null;
             double nearestMagnitude = double.MaxValue;
-            if (telemetry.Opponents == null) return null;
+            IEnumerable<Opponent> opponents = ahead
+                ? telemetry.OpponentsAheadOnTrack
+                : telemetry.OpponentsBehindOnTrack;
+            if (opponents == null) return null;
 
-            foreach (Opponent opponent in telemetry.Opponents)
+            foreach (Opponent opponent in opponents)
             {
                 if (opponent == null || opponent.IsPlayer || !opponent.IsConnected) continue;
                 if (opponent.IsCarInGarage.HasValue && opponent.IsCarInGarage.Value) continue;
@@ -449,6 +459,21 @@ namespace User.IRacingRadarPlugin
             if (!string.IsNullOrEmpty(opponent.Id)) return opponent.Id;
             return (opponent.CarNumber ?? string.Empty) + "|" + (opponent.Name ?? string.Empty);
         }
+        private static double CalculateCatchSeconds(double meters, double closingSpeed)
+        {
+            if (!IsFinite(meters) || meters >= -0.25 || !IsFinite(closingSpeed) ||
+                closingSpeed < CatchEstimateMinClosingSpeed) return double.NaN;
+            double seconds = Math.Abs(meters) / closingSpeed;
+            return seconds <= CatchEstimateMaxSeconds ? seconds : double.NaN;
+        }
+
+        private string BuildFrontDisplayText(double meters, double seconds)
+        {
+            string text = BuildDisplayText("F", meters, seconds);
+            if (text.Length == 0 || !settings.CatchEstimateEnabled || !IsFinite(frontCatchSeconds)) return text;
+            return text + "\nCatch " + frontCatchSeconds.ToString("0.0", CultureInfo.InvariantCulture) + "s";
+        }
+
         private string BuildDisplayText(string prefix, double meters, double seconds)
         {
             if (settings.DisplayMode == "None") return string.Empty;
@@ -467,9 +492,11 @@ namespace User.IRacingRadarPlugin
         private static double[] GetRelativeDistances(StatusDataBase telemetry, double rangeMeters)
         {
             List<double> result = new List<double>();
-            if (telemetry.Opponents == null) return result.ToArray();
+            List<Opponent> opponents = new List<Opponent>();
+            AddUniqueOpponents(opponents, telemetry.OpponentsAheadOnTrack);
+            AddUniqueOpponents(opponents, telemetry.OpponentsBehindOnTrack);
 
-            foreach (Opponent opponent in telemetry.Opponents)
+            foreach (Opponent opponent in opponents)
             {
                 if (opponent == null || opponent.IsPlayer || !opponent.IsConnected) continue;
                 if (opponent.IsCarInGarage.HasValue && opponent.IsCarInGarage.Value) continue;
@@ -487,6 +514,13 @@ namespace User.IRacingRadarPlugin
                 return Math.Abs(a).CompareTo(Math.Abs(b));
             });
             return result.ToArray();
+        }
+
+        private static void AddUniqueOpponents(List<Opponent> target, IEnumerable<Opponent> source)
+        {
+            if (source == null) return;
+            foreach (Opponent opponent in source)
+                if (opponent != null && !target.Contains(opponent)) target.Add(opponent);
         }
 
         private static double FindNearestAhead(double[] distances)
@@ -584,7 +618,7 @@ namespace User.IRacingRadarPlugin
             Set("RearRelativeMeters", IsFinite(rearMeters) ? rearMeters : 0.0);
             Set("FrontRelativeSeconds", IsFinite(frontSeconds) ? frontSeconds : 0.0);
             Set("RearRelativeSeconds", IsFinite(rearSeconds) ? rearSeconds : 0.0);
-            Set("FrontDisplayText", BuildDisplayText("F", frontMeters, frontSeconds));
+            Set("FrontDisplayText", BuildFrontDisplayText(frontMeters, frontSeconds));
             Set("RearDisplayText", BuildDisplayText("B", rearMeters, rearSeconds));
             Set("FrontProximityOpacity", frontProximityOpacity);
             Set("RearProximityOpacity", rearProximityOpacity);
@@ -597,6 +631,8 @@ namespace User.IRacingRadarPlugin
             Set("FrontMotionState", frontMotion.State);
             Set("RearMotionState", rearMotion.State);
             Set("FrontClosingSpeed", frontMotion.ClosingSpeed);
+            Set("FrontCatchSeconds", IsFinite(frontCatchSeconds) ? frontCatchSeconds : 0.0);
+            Set("CatchEstimateEnabled", settings.CatchEstimateEnabled);
             Set("RearClosingSpeed", rearMotion.ClosingSpeed);
             Set("LabelFontSize", settings.LabelFontSize);
             Set("DisplayMode", settings.DisplayMode);

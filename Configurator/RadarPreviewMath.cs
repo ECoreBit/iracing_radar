@@ -38,6 +38,24 @@ namespace IRacingRadarConfigurator
             return distance + " / " + time;
         }
 
+        public static string AppendCatchEstimate(RadarConfiguratorSettings settings, string text, bool front,
+            bool closing, double distanceMeters, double closingSpeed)
+        {
+            if (!settings.CatchEstimateEnabled || !front || !closing || string.IsNullOrEmpty(text)) return text;
+            double seconds = CatchSeconds(distanceMeters, closingSpeed);
+            return double.IsNaN(seconds) ? text : text + "\nCatch " +
+                seconds.ToString("0.0", CultureInfo.InvariantCulture) + "s";
+        }
+
+        public static double CatchSeconds(double distanceMeters, double closingSpeed)
+        {
+            if (distanceMeters >= -0.25 || closingSpeed < 2.0 || double.IsNaN(distanceMeters) ||
+                double.IsInfinity(distanceMeters) || double.IsNaN(closingSpeed) || double.IsInfinity(closingSpeed))
+                return double.NaN;
+            double seconds = Math.Abs(distanceMeters) / closingSpeed;
+            return seconds <= 15.0 ? seconds : double.NaN;
+        }
+
         private static double ThresholdOpacity(double value, double threshold, double fadePercent)
         {
             if (threshold <= 0 || value > threshold) return 0;

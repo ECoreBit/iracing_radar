@@ -12,6 +12,7 @@ namespace User.IRacingRadarPlugin
         public double RadarFadeBandPercent { get; private set; }
         public bool FrontGreenArcEnabled { get; private set; }
         public bool RearGreenArcEnabled { get; private set; }
+        public bool CatchEstimateEnabled { get; private set; }
         public double OverlayOpacity { get; private set; }
         public string DisplayMode { get; private set; }
         public double LabelFontSize { get; private set; }
@@ -26,6 +27,7 @@ namespace User.IRacingRadarPlugin
                 RadarFadeBandPercent = 15.0,
                 FrontGreenArcEnabled = true,
                 RearGreenArcEnabled = true,
+                CatchEstimateEnabled = true,
                 OverlayOpacity = 92.0,
                 DisplayMode = "Both",
                 LabelFontSize = 22.0
@@ -61,6 +63,11 @@ namespace User.IRacingRadarPlugin
                 if (key.Equals("RearGreenArcEnabled", StringComparison.OrdinalIgnoreCase))
                 {
                     value.RearGreenArcEnabled = ParseBoolean(text, value.RearGreenArcEnabled);
+                    continue;
+                }
+                if (key.Equals("CatchEstimateEnabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.CatchEstimateEnabled = ParseBoolean(text, value.CatchEstimateEnabled);
                     continue;
                 }
 

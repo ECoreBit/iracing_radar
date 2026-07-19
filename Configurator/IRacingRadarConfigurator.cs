@@ -37,6 +37,7 @@ namespace IRacingRadarConfigurator
         private readonly NumericUpDown near = new NumericUpDown();
         private readonly CheckBox frontArc = new CheckBox();
         private readonly CheckBox rearArc = new CheckBox();
+        private readonly CheckBox catchEstimate = new CheckBox();
         private readonly NumericUpDown time = new NumericUpDown();
         private readonly NumericUpDown fade = new NumericUpDown();
         private readonly NumericUpDown fontSize = new NumericUpDown();
@@ -122,6 +123,8 @@ namespace IRacingRadarConfigurator
             fields.Controls.Add(frontArc);
             ConfigureCheck(rearArc, "显示后方绿色提示条 / Rear green arc");
             fields.Controls.Add(rearArc);
+            ConfigureCheck(catchEstimate, "显示预计追上时间 / Catch-time estimate");
+            fields.Controls.Add(catchEstimate);
             ConfigureNumber(fontSize, 10, 36, 22, 0, 1, " px");
             fields.Controls.Add(Field("数值字体大小 / Label size", "前后距离与相对时间文字大小。", fontSize));
             ConfigureNumber(opacity, 0, 100, 92, 0, 1, " %");
@@ -198,6 +201,7 @@ namespace IRacingRadarConfigurator
             fontSize.ValueChanged += changed; opacity.ValueChanged += changed;
             frontArc.CheckedChanged += delegate { if (!loading) OnGreenArcSettingChanged(); };
             rearArc.CheckedChanged += delegate { if (!loading) OnGreenArcSettingChanged(); };
+            catchEstimate.CheckedChanged += delegate { if (!loading) UpdatePreview(); };
             scenario.SelectedIndexChanged += changed; previewDistance.ValueChanged += changed;
             previewTime.ValueChanged += changed; motion.SelectedIndexChanged += changed;
         }
@@ -283,6 +287,7 @@ namespace IRacingRadarConfigurator
                 near.Value = DecimalValue(near, settings.NearDistanceMeters);
                 frontArc.Checked = settings.FrontGreenArcEnabled;
                 rearArc.Checked = settings.RearGreenArcEnabled;
+                catchEstimate.Checked = settings.CatchEstimateEnabled;
                 time.Value = DecimalValue(time, settings.TimeAlertSeconds);
                 fade.Value = DecimalValue(fade, settings.RadarFadeBandPercent);
                 fontSize.Value = DecimalValue(fontSize, settings.LabelFontSize);
@@ -305,6 +310,7 @@ namespace IRacingRadarConfigurator
                 NearDistanceMeters = (double)near.Value,
                 FrontGreenArcEnabled = frontArc.Checked,
                 RearGreenArcEnabled = rearArc.Checked,
+                CatchEstimateEnabled = catchEstimate.Checked,
                 TimeAlertSeconds = (double)time.Value,
                 RadarFadeBandPercent = (double)fade.Value,
                 LabelFontSize = (double)fontSize.Value,

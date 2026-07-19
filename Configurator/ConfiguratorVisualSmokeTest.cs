@@ -36,6 +36,19 @@ namespace IRacingRadarConfigurator
                     frontArc.Checked = false;
                     Application.DoEvents();
                 }
+                if (Array.Exists(args, delegate(string value) { return value.Equals("front-catch", StringComparison.OrdinalIgnoreCase); }))
+                {
+                    ComboBox scenario = (ComboBox)typeof(ConfiguratorForm).GetField("scenario",
+                        BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
+                    ComboBox motion = (ComboBox)typeof(ConfiguratorForm).GetField("motion",
+                        BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
+                    NumericUpDown distance = (NumericUpDown)typeof(ConfiguratorForm).GetField("previewDistance",
+                        BindingFlags.Instance | BindingFlags.NonPublic).GetValue(form);
+                    scenario.SelectedIndex = 3;
+                    motion.SelectedIndex = 0;
+                    distance.Value = 20;
+                    Application.DoEvents();
+                }
                 form.PerformLayout();
                 using (Bitmap bitmap = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
                 {

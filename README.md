@@ -96,6 +96,7 @@ SimHub\
 - **前方绿色提示条**和**后方绿色提示条**可以分别开启或关闭。
 - **数值字体大小**控制前后车辆距离和相对时间文字的大小。
 - **整体透明度**控制雷达在游戏画面上的可见程度。
+- **预计追上时间**开启后，当本车快速接近前车时，前方数值下方会显示 `Catch x.xs`。该数值根据当前距离和接近速度估算，表示预计追上前车的时间，不代表一定能完成超车。
 
 #### 雷达效果预览
 
@@ -213,6 +214,7 @@ Run **IRacingRadar.Configurator.exe** to manage every radar setting through the 
 - The **front green alert** and **rear green alert** can be enabled independently.
 - **Label size** controls the front/rear distance and relative-time text size.
 - **Overlay opacity** controls how strongly the radar appears over the game.
+- When **catch-time estimate** is enabled and the player is rapidly closing on a front car, `Catch x.xs` appears below the front values. It estimates the time to catch the car from the current distance and closing speed; it does not guarantee a completed overtake.
 
 #### Radar preview
 

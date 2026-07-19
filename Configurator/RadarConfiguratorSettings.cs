@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,6 +14,7 @@ namespace IRacingRadarConfigurator
         public double NearDistanceMeters { get; set; }
         public bool FrontGreenArcEnabled { get; set; }
         public bool RearGreenArcEnabled { get; set; }
+        public bool CatchEstimateEnabled { get; set; }
         public double TimeAlertSeconds { get; set; }
         public double RadarFadeBandPercent { get; set; }
         public double LabelFontSize { get; set; }
@@ -28,6 +29,7 @@ namespace IRacingRadarConfigurator
                 NearDistanceMeters = 20.0,
                 FrontGreenArcEnabled = true,
                 RearGreenArcEnabled = true,
+                CatchEstimateEnabled = true,
                 TimeAlertSeconds = 0.7,
                 RadarFadeBandPercent = 15.0,
                 LabelFontSize = 22.0,
@@ -60,6 +62,8 @@ namespace IRacingRadarConfigurator
                     value.FrontGreenArcEnabled = boolean;
                 else if (key.Equals("RearGreenArcEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
                     value.RearGreenArcEnabled = boolean;
+                else if (key.Equals("CatchEstimateEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
+                    value.CatchEstimateEnabled = boolean;
                 else if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
                 {
                     if (key.Equals("RadarRangeMeters", StringComparison.OrdinalIgnoreCase)) value.RadarRangeMeters = Clamp(number, 5, 200);
@@ -119,6 +123,7 @@ namespace IRacingRadarConfigurator
             yield return Pair("NearDistanceMeters", Number(NearDistanceMeters));
             yield return Pair("FrontGreenArcEnabled", FrontGreenArcEnabled ? "true" : "false");
             yield return Pair("RearGreenArcEnabled", RearGreenArcEnabled ? "true" : "false");
+            yield return Pair("CatchEstimateEnabled", CatchEstimateEnabled ? "true" : "false");
             yield return Pair("TimeAlertSeconds", Number(TimeAlertSeconds));
             yield return Pair("RadarFadeBandPercent", Number(RadarFadeBandPercent));
             yield return Pair("LabelFontSize", Number(LabelFontSize));

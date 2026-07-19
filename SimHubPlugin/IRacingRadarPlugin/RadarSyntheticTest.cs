@@ -5,8 +5,22 @@ using System.Reflection;
 
 internal sealed class FakeStatus : StatusDataBase
 {
-    public FakeStatus() { typeof(StatusDataBase).GetProperty("Opponents").GetSetMethod(true).Invoke(this, new object[] { new List<Opponent>() }); }
+    public FakeStatus()
+    {
+        SetList("Opponents");
+        SetList("OpponentsAheadOnTrack");
+        SetList("OpponentsBehindOnTrack");
+    }
+
+    public List<Opponent> Ahead { get { return OpponentsAheadOnTrack; } }
+    public List<Opponent> Behind { get { return OpponentsBehindOnTrack; } }
     public override object GetRawDataObject() { return null; }
+
+    private void SetList(string property)
+    {
+        typeof(StatusDataBase).GetProperty(property).GetSetMethod(true)
+            .Invoke(this, new object[] { new List<Opponent>() });
+    }
 }
 
 internal static class RadarSyntheticTest
@@ -34,6 +48,7 @@ internal static class RadarSyntheticTest
         bool greenArcSwitchPass = Math.Abs((double)settingsType.GetProperty("RadarFadeBandPercent").GetValue(settings, null) - 15.0) < 0.001 &&
             (bool)settingsType.GetProperty("FrontGreenArcEnabled").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("RearGreenArcEnabled").GetValue(settings, null) &&
+            (bool)settingsType.GetProperty("CatchEstimateEnabled").GetValue(settings, null) &&
             !(bool)parseBoolean.Invoke(null, new object[] { "false", true }) &&
             !(bool)parseBoolean.Invoke(null, new object[] { "off", true }) &&
             (bool)parseBoolean.Invoke(null, new object[] { "yes", false }) &&
@@ -58,6 +73,7 @@ internal static class RadarSyntheticTest
         Add(data, -2.0);
         Add(data, 25.0);
         AddPit(data, 1.0);
+        AddGhost(data, -1.0);
 
         double[] selected = (double[])select.Invoke(null, new object[] { data, 18.0 });
         if (selected.Length != 2 || selected[0] != -2.0 || selected[1] != 7.0)
@@ -66,6 +82,17 @@ internal static class RadarSyntheticTest
             return 1;
         }
 
+        FakeStatus qualifyingOnly = new FakeStatus();
+        AddGhost(qualifyingOnly, -3.0);
+        double[] qualifyingSelected = (double[])select.Invoke(null, new object[] { qualifyingOnly, 18.0 });
+        MethodInfo nearestOpponent = pluginType.GetMethod("FindNearestOpponent", BindingFlags.NonPublic | BindingFlags.Static);
+        object qualifyingFront = nearestOpponent.Invoke(null, new object[] { qualifyingOnly, settings, true });
+        object qualifyingRear = nearestOpponent.Invoke(null, new object[] { qualifyingOnly, settings, false });
+        if (qualifyingSelected.Length != 0 || qualifyingFront != null || qualifyingRear != null)
+        {
+            Console.WriteLine("FAIL qualifying ghost opponent was not excluded");
+            return 1;
+        }
         Type math = plugin.GetType("User.IRacingRadarPlugin.RadarMath", true);
         MethodInfo top = math.GetMethod("CalculateTopFromRelativeMeters");
         double ahead = (double)top.Invoke(null, new object[] { -6.0, 66.0 });
@@ -95,6 +122,13 @@ internal static class RadarSyntheticTest
         bool transitionPass = greenFull > greenShorter && greenShorter > 0.0 &&
             redGrowing > 0.0 && blendBefore == 0.0 && blendAfter == 100.0;
 
+        MethodInfo catchSeconds = pluginType.GetMethod("CalculateCatchSeconds", BindingFlags.NonPublic | BindingFlags.Static);
+        double fastCatch = (double)catchSeconds.Invoke(null, new object[] { -20.0, 5.0 });
+        double slowCatch = (double)catchSeconds.Invoke(null, new object[] { -20.0, 1.0 });
+        double rearCatch = (double)catchSeconds.Invoke(null, new object[] { 20.0, 5.0 });
+        double distantCatch = (double)catchSeconds.Invoke(null, new object[] { -100.0, 5.0 });
+        bool catchEstimatePass = Math.Abs(fastCatch - 4.0) < 0.001 &&
+            double.IsNaN(slowCatch) && double.IsNaN(rearCatch) && double.IsNaN(distantCatch);
         MethodInfo closingSpeed = pluginType.GetMethod("CalculateClosingSpeed", BindingFlags.NonPublic | BindingFlags.Static);
         double rearClosing = (double)closingSpeed.Invoke(null, new object[] { 20.0, 15.0, 1.0 });
         double rearSeparating = (double)closingSpeed.Invoke(null, new object[] { 20.0, 25.0, 1.0 });
@@ -115,25 +149,37 @@ internal static class RadarSyntheticTest
         Console.WriteLine(noneModePass ? "PASS None display mode" : "FAIL None display mode");
         Console.WriteLine(greenArcSwitchPass ? "PASS green arc switches" : "FAIL green arc switches");
         Console.WriteLine(radarOpacityPass ? "PASS distance/time radar opacity" : "FAIL distance/time radar opacity");
-        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && radarOpacityPass ? 0 : 2;
+        Console.WriteLine(catchEstimatePass ? "PASS front catch-time estimate" : "FAIL front catch-time estimate");
+        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && radarOpacityPass && catchEstimatePass ? 0 : 2;
     }
 
-    private static void AddPit(StatusDataBase data, double meters)
+    private static void AddPit(FakeStatus data, double meters)
     {
-        Opponent opponent = new Opponent();
-        opponent.IsConnected = true;
-        opponent.IsPlayer = false;
+        Opponent opponent = CreateOpponent(meters);
         opponent.IsCarInPitLane = true;
-        opponent.RelativeDistanceToPlayer = meters;
         data.Opponents.Add(opponent);
+        data.Behind.Add(opponent);
     }
 
-    private static void Add(StatusDataBase data, double meters)
+    private static void Add(FakeStatus data, double meters)
+    {
+        Opponent opponent = CreateOpponent(meters);
+        data.Opponents.Add(opponent);
+        if (meters < 0.0) data.Ahead.Add(opponent);
+        else data.Behind.Add(opponent);
+    }
+
+    private static void AddGhost(FakeStatus data, double meters)
+    {
+        data.Opponents.Add(CreateOpponent(meters));
+    }
+
+    private static Opponent CreateOpponent(double meters)
     {
         Opponent opponent = new Opponent();
         opponent.IsConnected = true;
         opponent.IsPlayer = false;
         opponent.RelativeDistanceToPlayer = meters;
-        data.Opponents.Add(opponent);
+        return opponent;
     }
 }

@@ -160,11 +160,12 @@ namespace IRacingRadarConfigurator
             if (!side && Math.Abs(DistanceMeters) >= 2.5)
             {
                 string text = RadarPreviewMath.DisplayText(Settings, DistanceMeters, TimeSeconds);
+                text = RadarPreviewMath.AppendCatchEstimate(Settings, text, front, Closing, DistanceMeters, 8.0);
                 if (text.Length > 0 && farVisible)
                 {
                     double farTextOpacity = (100 - blend) * proximity / 100.0 *
                         Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0;
-                    DrawOverlayText(g, text, new RectangleF(110, front ? 42 : 178, 200, 40), farTextOpacity);
+                    DrawOverlayText(g, text, new RectangleF(110, front ? 20 : 178, 200, front ? 84 : 40), farTextOpacity);
                 }
             }
 
@@ -182,11 +183,12 @@ namespace IRacingRadarConfigurator
             if (!side && Math.Abs(DistanceMeters) >= 2.5)
             {
                 string text = RadarPreviewMath.DisplayText(Settings, DistanceMeters, TimeSeconds);
+                text = RadarPreviewMath.AppendCatchEstimate(Settings, text, front, Closing, DistanceMeters, 8.0);
                 if (text.Length > 0 && nearVisible)
                 {
                     double textOpacity = blend *
                         Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0;
-                    DrawOverlayText(g, text, new RectangleF(110, front ? 42 : 178, 200, 40), textOpacity);
+                    DrawOverlayText(g, text, new RectangleF(110, front ? 20 : 178, 200, front ? 84 : 40), textOpacity);
                 }
             }
 

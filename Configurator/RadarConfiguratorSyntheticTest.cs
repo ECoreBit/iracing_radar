@@ -21,15 +21,15 @@ namespace IRacingRadarConfigurator
             RadarConfiguratorSettings defaults = RadarConfiguratorSettings.Defaults();
             bool defaultsPass = defaults.DisplayMode == "Both" && defaults.RadarRangeMeters == 70 &&
                 defaults.NearDistanceMeters == 20 && defaults.TimeAlertSeconds == 0.7 &&
-                defaults.FrontGreenArcEnabled && defaults.RearGreenArcEnabled &&
+                defaults.FrontGreenArcEnabled && defaults.RearGreenArcEnabled && defaults.CatchEstimateEnabled &&
                 defaults.RadarFadeBandPercent == 15 && defaults.LabelFontSize == 22 && defaults.OverlayOpacity == 92;
 
             string source = "# keep this comment\nDisplayMode=Time\nRadarRangeMeters=500\n" +
-                "NearDistanceMeters=90\nFrontGreenArcEnabled=false\nRearGreenArcEnabled=yes\n" +
+                "NearDistanceMeters=90\nFrontGreenArcEnabled=false\nRearGreenArcEnabled=yes\nCatchEstimateEnabled=false\n" +
                 "TimeAlertSeconds=0.4\nRadarFadeBandPercent=80\nLabelFontSize=8\nOverlayOpacity=110\n";
             RadarConfiguratorSettings parsed = RadarConfiguratorSettings.Parse(source);
             bool parsePass = parsed.DisplayMode == "Time" && parsed.RadarRangeMeters == 200 &&
-                parsed.NearDistanceMeters == 90 && !parsed.FrontGreenArcEnabled && parsed.RearGreenArcEnabled &&
+                parsed.NearDistanceMeters == 90 && !parsed.FrontGreenArcEnabled && parsed.RearGreenArcEnabled && !parsed.CatchEstimateEnabled &&
                 parsed.RadarFadeBandPercent == 50 && parsed.LabelFontSize == 10 && parsed.OverlayOpacity == 100;
 
             parsed.RadarRangeMeters = 70;
@@ -64,6 +64,9 @@ namespace IRacingRadarConfigurator
             bool mathPass = RadarPreviewMath.IsTriggered(defaults, 50, 2) &&
                 !RadarPreviewMath.IsTriggered(defaults, 80, 2) &&
                 RadarPreviewMath.Opacity(defaults, 70, 2) == 0 &&
+                Math.Abs(RadarPreviewMath.CatchSeconds(-20, 5) - 4.0) < 0.001 &&
+                double.IsNaN(RadarPreviewMath.CatchSeconds(-20, 1)) &&
+                RadarPreviewMath.AppendCatchEstimate(defaults, "20m / 0.4s", true, true, -20, 5).Contains("Catch 4.0s") &&
                 RadarOverlayMath.NearProgress(nearStart, nearStart) == 0 &&
                 RadarOverlayMath.FrameIndex(100) == 59 &&
                 Math.Abs(RadarOverlayMath.SideTop(-6) - 80.2) < 0.01 &&
