@@ -66,6 +66,7 @@ SimHub\
 ├─ User.IRacingRadarPlugin.dll
 ├─ IRacingRadar.settings.ini
 ├─ IRacingRadar.Configurator.exe
+├─ IRacingRadar.Updater.exe
 └─ DashTemplates\
    └─ iRacing Radar\
       ├─ iRacing Radar.djson
@@ -74,109 +75,50 @@ SimHub\
 
 解压完成后：
 
-1. 运行 **IRacingRadar.Configurator.exe**。出现权限提示时选择允许，以便工具保存 SimHub 根目录中的配置文件。
-2. 在左侧调整参数，右侧会使用与 SimHub Overlay 相同的图像资源实时预览。
-3. 通过顶部菜单切换中文或英文，并选择白天或夜间模式。语言和主题会立即保存，下次启动配置工具时自动恢复。
-4. 点击“动态演示”可查看车辆从后方接近、左侧并排并从前方远离的完整过程；也可以直接点击后方绿色、后方红色、左侧并排、前方红色或前方绿色五个场景按钮。
-5. 关闭前方或后方绿色提示条后，对应的预览按钮会变灰且无法点击，动态演示也会跳过该阶段。
-6. 点击“保存设置”。如果 SimHub 未运行，工具会直接保存；如果 SimHub 正在运行，可以选择立即重启 SimHub、稍后手动重启或取消保存。选择立即重启后，配置工具会自动完成重启。
-7. 在 SimHub 插件列表中启用 **iRacing Radar**，然后在 Dash Studio / Overlays 中启动同名 Overlay。
-8. 启动 iRacing。建议使用无边框或窗口模式，方便 Windows overlay 正常显示。
+1. 运行 **IRacingRadar.Configurator.exe**，并允许 Windows 权限提示。
+2. 按照下方说明完成设置，然后点击“保存设置”。
+3. 在 SimHub 插件列表中启用 **iRacing Radar**，并在 Dash Studio / Overlays 中启动同名 Overlay。
+4. 启动 iRacing。建议使用无边框或窗口模式，以便 Windows Overlay 正常显示。
+### 配置工具使用说明
 
-### 配置文件位置
+运行 **IRacingRadar.Configurator.exe** 后，可直接通过界面完成全部设置，无需手动编辑配置文件。
 
-推荐把配置文件放在 DLL 同目录：
+#### 提示条件
 
-```text
-C:\Program Files (x86)\SimHub\IRacingRadar.settings.ini
-```
+- **显示模式**：选择前后车辆显示距离、相对时间、两者同时显示，或隐藏数值。隐藏数值不会关闭雷达图形警示。
+- **距离提示范围**：车辆进入设定距离后开始显示雷达提示。
+- **相对时间提示范围**：根据前后车辆与本车的相对时间触发提示，仅在对应显示模式下参与判断。
+- **红色警示距离**：车辆进入近距离范围后，绿色提示逐渐切换为红色警示。
+- **边缘渐显比例**：控制车辆刚进入或离开提示范围时雷达透明度的变化区间。
 
-插件会优先读取这个文件。如果找不到，会兼容旧位置：
+#### 显示效果
 
-```text
-%USERPROFILE%\Documents\iRacingRadar\IRacingRadar.settings.ini
-%USERPROFILE%\Documents\iraing_Rader\IRacingRadar.settings.ini
-```
+- **前方绿色提示条**和**后方绿色提示条**可以分别开启或关闭。
+- **数值字体大小**控制前后车辆距离和相对时间文字的大小。
+- **整体透明度**控制雷达在游戏画面上的可见程度。
 
-配置工具的语言和主题偏好单独保存在：
+#### 雷达效果预览
 
-```text
-%LOCALAPPDATA%\iRacingRadar\Configurator.settings.ini
-```
+右侧预览使用与 SimHub Overlay 相同的图像资源，修改设置后会立即显示对应效果。
 
-### 配置项说明
+- 可直接查看后方绿色、后方红色、左侧并排、前方红色和前方绿色五种状态。
+- 点击“动态演示”可观看车辆从后方接近、左侧完成超车并从前方远离的完整过程。
+- 关闭某一方向的绿色提示条后，对应的绿色预览按钮会变灰，动态演示也会跳过该阶段。
 
-```ini
-DisplayMode=Both
-```
+#### 语言、主题与保存
 
-控制前后车辆显示哪些数字，并决定使用距离条件、相对时间条件还是两者来显示图形警示。
+- 顶部菜单可以切换中文或英文，以及白天或夜间主题。语言和主题会自动记忆。
+- 点击“保存设置”后，如果 SimHub 没有运行，设置会直接保存。
+- 如果 SimHub 正在运行，可以选择立即重启、稍后手动重启或取消。选择立即重启后，配置工具会自动完成重启。
 
-- `None`：不显示距离和时差文字；图形警示仍然正常显示，并采用与 `Both` 相同的触发条件。
-- `Distance`：只看距离条件，只显示米数。
-- `Time`：只看相对时间条件，只显示秒数。
-- `Both`：距离或相对时间只要有一个达到设定范围，就显示图形警示，并同时显示米数和秒数。
+#### 自动更新
 
-```ini
-RadarRangeMeters=70
-```
-
-距离条件的范围，单位是米。设置为 `70` 表示前后车辆距离本车不超过 70 米时，距离条件成立。
-
-雷达会在距离范围最外侧的 15% 区间内按比例渐显。例如范围为 70 米时，70 米处透明度为 0，65 米处于渐显状态，约 59.5 米及以内完全显示。
-
-- `DisplayMode=Distance`：只根据这个距离判断是否提示。
-- `DisplayMode=Both` 或 `None`：距离条件和相对时间条件满足任意一个，都会显示图形警示。
-- `DisplayMode=Time`：不使用这个距离条件。
-
-```ini
-TimeAlertSeconds=0.7
-```
-
-**这是相对时间提示范围。** 它决定前后车辆与本车的相对时间达到多少秒时开始提示。设置为 `0.7` 时，相对时间大于 0.7 秒不提示，相对时间不超过 0.7 秒就进入提示范围。
-
-这个参数是否使用，由 `DisplayMode` 决定：
-
-- `Time`：只使用 `TimeAlertSeconds` 判断是否提示。
-- `Both`：同时检查 `TimeAlertSeconds` 和 `RadarRangeMeters`，任意一个条件满足就提示。
-- `Distance`：不使用 `TimeAlertSeconds`。
-- `None`：判断方式与 `Both` 相同，但隐藏距离和相对时间文字。
-
-因此，`TimeAlertSeconds` 只需要配合 `DisplayMode` 使用，不需要配合 `RadarFadeBandPercent`。
-
-例如同时设置 `RadarRangeMeters=70` 和 `TimeAlertSeconds=0.7`：车辆相距 60 米但相对时间为 1.0 秒时，距离条件成立；车辆相距 90 米但相对时间为 0.5 秒时，相对时间条件成立。`Both` 和 `None` 在这两种情况下都会显示图形警示，但 `None` 不显示任何数字。
-
-```ini
-RadarFadeBandPercent=15
-```
-
-**这是独立的雷达透明度设置。** 它控制雷达进入或离开提示范围时，使用多大比例的范围逐渐显示或隐藏。设置为 `15` 表示使用提示范围边缘的 15% 改变透明度，剩余范围内完全显示。它不会修改距离或相对时间的触发值，也不需要与 `TimeAlertSeconds` 配套使用。
-
-```ini
-NearDistanceMeters=20
-```
-
-近距离红色警示范围，单位是米。前后车辆进入这个范围后，雷达会从绿色提示逐渐变成红色警示。
-
-```ini
-FrontGreenArcEnabled=true
-RearGreenArcEnabled=true
-```
-
-分别控制前方和后方的绿色远距离提示条。设置为 `true` 时显示，设置为 `false` 时隐藏。关闭绿色条后，该方向只在红色近距离警示期间显示；红色扇形结束后，雷达和文字会一起渐隐。侧面标记不受影响。
-
-```ini
-OverlayOpacity=92
-```
-
-雷达整体透明度，范围建议 `0` 到 `100`。数值越大越明显。
-
-```ini
-LabelFontSize=22
-```
-
-前后车辆距离/时间文字大小。
-
+- 配置工具启动时会自动检查 GitHub 是否发布了新版本。
+- 发现新版本后，可以选择自动下载并安装或暂不更新。
+- 自动更新会保留用户当前设置，并替换插件、Overlay、配置工具和更新器。
+- 如果 SimHub 正在运行，更新器会先关闭 SimHub，更新完成后再自动启动。
+- 更新失败时会尝试恢复原文件；断网或检查失败不会影响配置工具正常使用。
+- **IRacingRadar.Updater.exe** 是自动更新所需文件，请不要从 SimHub 根目录中删除。
 <a id="readme-en"></a>
 
 ## English
@@ -241,6 +183,7 @@ SimHub\
 ├─ User.IRacingRadarPlugin.dll
 ├─ IRacingRadar.settings.ini
 ├─ IRacingRadar.Configurator.exe
+├─ IRacingRadar.Updater.exe
 └─ DashTemplates\
    └─ iRacing Radar\
       ├─ iRacing Radar.djson
@@ -249,109 +192,50 @@ SimHub\
 
 After extracting:
 
-1. Run **IRacingRadar.Configurator.exe**. Allow the elevation prompt so the tool can save the settings file in the SimHub root folder.
-2. Adjust settings on the left. The preview on the right uses the same image assets as the SimHub Overlay.
-3. Use the top menus to switch language and choose day or night mode. Language and theme preferences are saved immediately and restored the next time the configurator starts.
-4. Select **Play demo** to watch a car approach from behind, run alongside on the left, and move away in front, or click one of five scene buttons: rear green, rear red, left alongside, front red, or front green.
-5. Disabling the front or rear green alert greys out its preview button and removes that stage from the dynamic demo.
-6. Select **Save**. If SimHub is not running, the settings are saved immediately. If it is running, choose **Restart now**, **Restart later**, or **Cancel**. The configurator automatically restarts SimHub when **Restart now** is selected.
-7. Enable the **iRacing Radar** plugin in SimHub, then start the matching Overlay from Dash Studio / Overlays.
-8. Start iRacing. Borderless or windowed mode is recommended for Windows overlays.
+1. Run **IRacingRadar.Configurator.exe** and allow the Windows elevation prompt.
+2. Follow the configurator guide below, then select **Save**.
+3. Enable the **iRacing Radar** plugin in SimHub and start the matching Overlay from Dash Studio / Overlays.
+4. Start iRacing. Borderless or windowed mode is recommended so the Windows Overlay can display correctly.
+### Configurator guide
 
-### Settings file location
+Run **IRacingRadar.Configurator.exe** to manage every radar setting through the interface. Manual configuration-file editing is not required.
 
-Recommended location:
+#### Alert conditions
 
-```text
-C:\Program Files (x86)\SimHub\IRacingRadar.settings.ini
-```
+- **Display mode**: show distance, relative time, both values, or no numeric values for front and rear cars. Hiding values does not disable graphical radar alerts.
+- **Radar range**: begins showing the radar when a car enters the selected distance.
+- **Time-gap range**: triggers alerts from the relative time to a front or rear car when the selected display mode uses time.
+- **Near-warning distance**: gradually changes a front or rear alert from green to red at close range.
+- **Fade band**: controls the portion of the alert-range boundary used to fade the radar in or out.
 
-The plugin reads this file first because it is next to `User.IRacingRadarPlugin.dll`. If it is missing, the plugin falls back to these legacy locations:
+#### Appearance
 
-```text
-%USERPROFILE%\Documents\iRacingRadar\IRacingRadar.settings.ini
-%USERPROFILE%\Documents\iraing_Rader\IRacingRadar.settings.ini
-```
+- The **front green alert** and **rear green alert** can be enabled independently.
+- **Label size** controls the front/rear distance and relative-time text size.
+- **Overlay opacity** controls how strongly the radar appears over the game.
 
-The configurator stores its language and theme preferences separately at:
+#### Radar preview
 
-```text
-%LOCALAPPDATA%\iRacingRadar\Configurator.settings.ini
-```
+The preview uses the same image resources as the SimHub Overlay and updates immediately when settings change.
 
-### Settings
+- Preview rear green, rear red, left alongside, front red, and front green states directly.
+- Select **Play demo** to watch a car approach from behind, pass on the left, and move away in front.
+- Disabling a front or rear green alert greys out its preview button and removes that stage from the dynamic demo.
 
-```ini
-DisplayMode=Both
-```
+#### Language, theme, and saving
 
-Controls which front/rear values are shown and whether the graphical alert uses the distance condition, the time-gap condition, or both.
+- Use the top menus to switch between Chinese and English and between day and night themes. Both preferences are remembered automatically.
+- When **Save** is selected while SimHub is not running, the settings are saved immediately.
+- When SimHub is running, choose **Restart now**, **Restart later**, or **Cancel**. The configurator handles the restart automatically when **Restart now** is selected.
 
-- `None`: show no distance or time text; graphical alerts remain active and use the same trigger conditions as `Both`.
-- `Distance`: use only the distance condition and show metres only.
-- `Time`: use only the time-gap condition and show seconds only.
-- `Both`: show the graphical alert when either condition is met, and display both metres and seconds.
+#### Automatic updates
 
-```ini
-RadarRangeMeters=70
-```
-
-The distance-condition range in metres. A value of `70` means the distance condition is met when a front or rear car is no more than 70 metres away.
-
-The radar fades in proportionally over the outermost 15% of the configured distance range. With a 70-metre range, opacity is zero at 70 metres, partial at 65 metres, and fully visible at approximately 59.5 metres and below.
-
-- `DisplayMode=Distance`: only this distance condition controls the alert.
-- `DisplayMode=Both` or `None`: the graphical alert appears when either the distance condition or time-gap condition is met.
-- `DisplayMode=Time`: this distance condition is not used.
-
-```ini
-TimeAlertSeconds=0.7
-```
-
-**This is the time-gap alert range.** It determines when a front or rear car starts triggering an alert based on its time gap to the player. At `0.7`, a gap above 0.7 seconds does not trigger an alert; a gap of 0.7 seconds or less is inside the alert range.
-
-Whether this setting is used depends on `DisplayMode`:
-
-- `Time`: uses only `TimeAlertSeconds`.
-- `Both`: checks both `TimeAlertSeconds` and `RadarRangeMeters`; either condition can trigger the alert.
-- `Distance`: does not use `TimeAlertSeconds`.
-- `None`: uses the same trigger logic as `Both`, but hides distance and time-gap text.
-
-Therefore, `TimeAlertSeconds` only needs the appropriate `DisplayMode`; it does not need to be paired with `RadarFadeBandPercent`.
-
-For example, with `RadarRangeMeters=70` and `TimeAlertSeconds=0.7`: a car at 60 metres with a 1.0-second gap meets the distance condition; a car at 90 metres with a 0.5-second gap meets the time-gap condition. `Both` and `None` show the graphical alert in either case, but `None` shows no numeric values.
-
-```ini
-RadarFadeBandPercent=15
-```
-
-**This is an independent radar-opacity setting.** It controls how much of the alert-range edge is used to gradually show or hide the radar. At `15`, the outer 15% of the alert range changes opacity and the radar is fully visible through the remaining range. It does not change the distance or time-gap trigger values and does not need to be paired with `TimeAlertSeconds`.
-
-```ini
-NearDistanceMeters=20
-```
-
-Close-warning range in meters. Front/rear alerts gradually change from green to red inside this range.
-
-```ini
-FrontGreenArcEnabled=true
-RearGreenArcEnabled=true
-```
-
-Control the front and rear green far-distance arcs independently. When an arc is disabled, that direction is shown only during the red close-warning phase; after the red sector ends, the radar and text fade out together. Side markers are unaffected.
-
-```ini
-OverlayOpacity=92
-```
-
-Overall radar opacity. Recommended range is `0` to `100`. Higher values are more visible.
-
-```ini
-LabelFontSize=22
-```
-
-Font size for front/rear distance and time labels.
-
+- The configurator checks GitHub for new releases at startup.
+- When a newer version is available, choose whether to download and install it automatically or update later.
+- Automatic updates preserve the current user settings while replacing the plugin, Overlay, configurator, and updater.
+- If SimHub is running, the updater closes it before replacing files and starts it again afterward.
+- If installation fails, the updater attempts to restore the previous files. Network and update-check failures do not interrupt normal configurator use.
+- **IRacingRadar.Updater.exe** is required for automatic updates and should remain in the SimHub root folder.
 ## License
 
 MIT License. See [LICENSE.md](LICENSE.md).

@@ -21,6 +21,9 @@ $arguments = @(
     '/reference:System.IO.Compression.FileSystem.dll',
     "/win32manifest:$(Join-Path $source 'IRacingRadarConfigurator.manifest')",
     "/win32icon:$(Join-Path $source 'IRacingRadar.ico')",
+    (Join-Path $source 'AssemblyInfo.cs'),
+    (Join-Path $source 'UpdateChecker.cs'),
+    (Join-Path $source 'UpdateInstaller.cs'),
     (Join-Path $source 'RadarConfiguratorSettings.cs'),
     (Join-Path $source 'ConfiguratorPreferences.cs'),
     (Join-Path $source 'RadarPreviewMath.cs'),
@@ -34,4 +37,5 @@ $arguments = @(
 )
 & $csc @arguments
 if ($LASTEXITCODE -ne 0) { throw "Configurator compilation failed with exit code $LASTEXITCODE." }
+& (Join-Path $PSScriptRoot 'build-updater.ps1')
 Write-Host "Built: $output"

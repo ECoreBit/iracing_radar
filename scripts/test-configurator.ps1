@@ -13,6 +13,7 @@ $test = Join-Path $testDir 'RadarConfiguratorSyntheticTest.exe'
 & $csc /nologo /target:exe "/out:$test" `
     (Join-Path $source 'RadarConfiguratorSettings.cs') `
     (Join-Path $source 'ConfiguratorPreferences.cs') `
+    (Join-Path $source 'UpdateChecker.cs') `
     (Join-Path $source 'RadarPreviewMath.cs') `
     (Join-Path $source 'RadarOverlayMath.cs') `
     (Join-Path $source 'RadarConfiguratorSyntheticTest.cs')
@@ -76,3 +77,4 @@ Write-Host 'PASS configurator embedded radar icon'
 & (Join-Path $PSScriptRoot 'test-preview-contract.ps1')
 & (Join-Path $PSScriptRoot 'test-configurator-layout.ps1')
 & (Join-Path $PSScriptRoot 'test-green-arc-edges.ps1')
+& (Join-Path $PSScriptRoot 'test-updater.ps1')

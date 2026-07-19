@@ -27,6 +27,48 @@ namespace IRacingRadarConfigurator
         private bool applyingPreferences;
         private readonly Dictionary<Control, Color> nightBackColors = new Dictionary<Control, Color>();
         private readonly Dictionary<Control, Color> nightForeColors = new Dictionary<Control, Color>();
+        private bool updateCheckStarted;
+
+        protected override async void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (updateCheckStarted) return;
+            updateCheckStarted = true;
+            AvailableRelease release = await UpdateChecker.CheckAsync();
+            if (release == null || IsDisposed) return;
+
+            string title = english ? "iRacing Radar update" : "iRacing Radar 发现新版本";
+            string message = english
+                ? "A new version " + release.Tag + " is available.\n\nDownload and install it now?"
+                : "发现新版本 " + release.Tag + "。\n\n是否现在自动下载并安装？";
+            if (MessageBox.Show(this, message, title, MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information, MessageBoxDefaultButton.Button1) != DialogResult.Yes) return;
+
+            if (string.IsNullOrEmpty(release.DownloadUrl))
+            {
+                Process.Start(new ProcessStartInfo(release.Url) { UseShellExecute = true });
+                return;
+            }
+
+            try
+            {
+                Enabled = false;
+                UseWaitCursor = true;
+                SetStatus("正在下载并验证新版本……", "Downloading and verifying the update...", false);
+                await UpdateInstaller.BeginAsync(release, settingsPath);
+                SetStatus("下载完成，正在退出并替换文件……",
+                    "Download complete. Closing to replace files...", false);
+                BeginInvoke(new Action(Application.Exit));
+            }
+            catch (Exception ex)
+            {
+                Enabled = true;
+                UseWaitCursor = false;
+                MessageBox.Show(this,
+                    (english ? "Automatic update failed.\n\n" : "自动更新失败。\n\n") + ex.Message,
+                    title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
 
         private void InitializeFeatures()
         {

@@ -7,6 +7,17 @@ namespace IRacingRadarConfigurator
     {
         private static int Main()
         {
+            Version parsedVersion;
+            if (!UpdateChecker.TryParseVersionTag("v1.4.2", out parsedVersion) || parsedVersion != new Version(1, 4, 2))
+                throw new InvalidOperationException("GitHub release version parsing failed.");
+            AvailableRelease parsedRelease = UpdateChecker.ParseLatestRelease(
+                "{\"tag_name\":\"v1.4.0\",\"html_url\":\"https://github.com/ECoreBit/iracing_radar/releases/tag/v1.4.0\",\"assets\":[{\"browser_download_url\":\"https://github.com/ECoreBit/iracing_radar/releases/download/v1.4.0/iracing-radar-v1.4.0.zip\"}]}");
+            if (parsedRelease == null || parsedRelease.Version != new Version(1, 4, 0) ||
+                !parsedRelease.Url.EndsWith("/v1.4.0", StringComparison.Ordinal) ||
+                !parsedRelease.DownloadUrl.EndsWith("iracing-radar-v1.4.0.zip", StringComparison.Ordinal))
+                throw new InvalidOperationException("GitHub release response parsing failed.");
+            if (UpdateChecker.IsTrustedDownloadUrl("https://example.com/fake.zip"))
+                throw new InvalidOperationException("Untrusted update URL was accepted.");
             RadarConfiguratorSettings defaults = RadarConfiguratorSettings.Defaults();
             bool defaultsPass = defaults.DisplayMode == "Both" && defaults.RadarRangeMeters == 70 &&
                 defaults.NearDistanceMeters == 20 && defaults.TimeAlertSeconds == 0.7 &&

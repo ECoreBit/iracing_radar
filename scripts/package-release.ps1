@@ -28,6 +28,7 @@ New-Item -ItemType Directory -Path $overlayStage -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $root 'SimHubPlugin\IRacingRadarPlugin\bin\Release\User.IRacingRadarPlugin.dll') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'IRacingRadar.settings.ini') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'Configurator\bin\Release\IRacingRadar.Configurator.exe') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root 'Configurator\bin\Release\IRacingRadar.Updater.exe') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'SimHubPlugin\Overlay\iRacing Radar.djson') -Destination $overlayStage
 Copy-Item -LiteralPath (Join-Path $root 'SimHubPlugin\Overlay\iRacing Radar.djson.ressources') -Destination $overlayStage
 
