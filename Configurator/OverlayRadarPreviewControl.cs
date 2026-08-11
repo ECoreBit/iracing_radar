@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -106,7 +106,11 @@ namespace IRacingRadarConfigurator
         {
             bool side = Scenario >= PreviewScenario.LeftBehind;
             if (Scenario == PreviewScenario.NoCars)
+            {
+                if (Settings.TrackBackgroundEnabled && Settings.TrackBackgroundAlwaysVisible)
+                    DrawTrackOnly(g);
                 return;
+            }
 
             double proximity = side ? 100 : RadarPreviewMath.Opacity(Settings, DistanceMeters, TimeSeconds);
             double alert = side ? 0 : RadarOverlayMath.AlertProgress(Settings, DistanceMeters, TimeSeconds);
@@ -139,6 +143,7 @@ namespace IRacingRadarConfigurator
             DrawRoundedRectangle(g, new RectangleF(81, 1, 258, 258), "#52101620",
                 62 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,
                 129, "#88DDE6EE", 2);
+            DrawReferenceTrack(g, radarOpacity);
 
             if (farVisible)
             {
@@ -192,9 +197,60 @@ namespace IRacingRadarConfigurator
                 }
             }
 
-            DrawRoundedRectangle(g, new RectangleF(201, 109, 18, 42), "#FF727E8A",
+            DrawPlayer(g, radarOpacity);
+        }
+
+        private void DrawTrackOnly(Graphics g)
+        {
+            const double radarOpacity = 100.0;
+            DrawRoundedRectangle(g, new RectangleF(81, 1, 258, 258), "#52101620",
+                62 * Settings.OverlayOpacity / 100.0, 129, "#88DDE6EE", 2);
+            DrawReferenceTrack(g, radarOpacity);
+            DrawPlayer(g, radarOpacity);
+        }
+
+        private void DrawPlayer(Graphics g, double radarOpacity)
+        {
+            float playerWidth = 12f;
+            float playerLength = 30f;
+            DrawRoundedRectangle(g, new RectangleF(210 - playerWidth / 2f, 130 - playerLength / 2f,
+                playerWidth, playerLength), "#FF727E8A",
                 100 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,
                 7, "#B8E8EDF2", 1);
+        }
+
+        private void DrawReferenceTrack(Graphics g, double radarOpacity)
+        {
+            if (!Settings.TrackBackgroundEnabled) return;
+            float pixelsPerMeter = (float)Settings.TrackScalePixelsPerMeter;
+            float trackScale = pixelsPerMeter / 8.75f;
+            float roadWidth = Math.Max(2f, (float)Settings.ReferenceTrackWidthMeters * pixelsPerMeter);
+            GraphicsState state = g.Save();
+            using (GraphicsPath clip = new GraphicsPath())
+            using (GraphicsPath centerLine = new GraphicsPath())
+            {
+                clip.AddEllipse(new RectangleF(81, 1, 258, 258));
+                g.SetClip(clip, CombineMode.Intersect);
+                centerLine.AddBezier(ScaleTrackPoint(186, 270, trackScale), ScaleTrackPoint(188, 220, trackScale),
+                    ScaleTrackPoint(215, 175, trackScale), ScaleTrackPoint(207, 130, trackScale));
+                centerLine.AddBezier(ScaleTrackPoint(207, 130, trackScale), ScaleTrackPoint(200, 85, trackScale),
+                    ScaleTrackPoint(242, 45, trackScale), ScaleTrackPoint(232, -10, trackScale));
+                Color road = Color.FromArgb(130, 111, 127, 145);
+                double opacity = 55.0 * Settings.OverlayOpacity / 100.0 *
+                    radarOpacity / 100.0;
+                using (Pen roadPen = new Pen(Color.FromArgb(ScaleAlpha(road.A, opacity),
+                    road.R, road.G, road.B), roadWidth))
+                {
+                    roadPen.StartCap = roadPen.EndCap = LineCap.Round;
+                    g.DrawPath(roadPen, centerLine);
+                }
+            }
+            g.Restore(state);
+        }
+
+        private static PointF ScaleTrackPoint(float x, float y, float scale)
+        {
+            return new PointF(210f + (x - 210f) * scale, 130f + (y - 130f) * scale);
         }
 
         private void DrawSide(Graphics g, double radarOpacity, double sideOpacity)
@@ -210,7 +266,10 @@ namespace IRacingRadarConfigurator
             float markerX = left ? 167 : 235;
             FillRectangle(g, new RectangleF(railX, 34, 2, 192), "#80D51B2A",
                 30 * sideOpacity / 100.0 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0);
-            DrawRoundedRectangle(g, new RectangleF(markerX, top, 18, 42), "#F0E31B2C",
+            float markerWidth = 18f;
+            float markerLength = 42f;
+            DrawRoundedRectangle(g, new RectangleF(markerX + 9 - markerWidth / 2f,
+                top + 21 - markerLength / 2f, markerWidth, markerLength), "#F0E31B2C",
                 92 * sideOpacity / 100.0 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,
                 7, "#B8FF7A82", 1);
         }

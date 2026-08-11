@@ -47,6 +47,7 @@
     <Compile Include="IRacingRadarPlugin.cs" />
     <Compile Include="RadarMath.cs" />
     <Compile Include="RadarSettings.cs" />
+    <Compile Include="TrackMapGeometry.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,4 +1,4 @@
-﻿using GameReaderCommon;
+using GameReaderCommon;
 using SimHub.Plugins;
 using System;
 using System.Collections.Generic;
@@ -20,6 +20,10 @@ namespace User.IRacingRadarPlugin
         private const double MotionNeutralMetersPerSecond = 0.20;
         private const double CatchEstimateMinClosingSpeed = 2.0;
         private const double CatchEstimateMaxSeconds = 15.0;
+        private const double TimeGapMinimumReferenceSpeedKmh = 100.0;
+        private const double TimeGapMaximumReferenceSpeedKmh = 450.0;
+        private const double TimeGapDistanceSpeedFactor = 1.5;
+        private const double TimeGapDistanceMarginMeters = 25.0;
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private SideState left = SideState.Hidden;
         private SideState right = SideState.Hidden;
@@ -53,6 +57,10 @@ namespace User.IRacingRadarPlugin
         private double nextSettingsRefresh;
         private double radarVisualOpacity;
         private bool radarVisible;
+        private bool qualifyingSession;
+        private readonly TrackMapGeometry trackMap = new TrackMapGeometry();
+        private TrackVisualFrame trackFrame = TrackVisualFrame.Empty(10.5,
+            TrackVisualFrame.DefaultPixelsPerMeter);
 
         public PluginManager PluginManager { get; set; }
 
@@ -110,6 +118,8 @@ namespace User.IRacingRadarPlugin
             Add("FrontClosingSpeed", 0.0, "Smoothed front closing speed in m/s.");
             Add("FrontCatchSeconds", 0.0, "Estimated seconds until catching the front car.");
             Add("CatchEstimateEnabled", settings.CatchEstimateEnabled, "Configured catch-time estimate switch.");
+            Add("HideInQualifying", settings.HideInQualifying, "Hide all radar visuals during qualifying sessions.");
+            Add("QualifyingSession", false, "True while the current iRacing session is qualifying.");
             Add("RearClosingSpeed", 0.0, "Smoothed rear closing speed in m/s.");
             Add("LabelFontSize", settings.LabelFontSize, "Configured front/rear label font size.");
             Add("DisplayMode", settings.DisplayMode, "None, Distance, Time, or Both." );
@@ -123,6 +133,25 @@ namespace User.IRacingRadarPlugin
             Add("NearDistanceMeters", settings.NearDistanceMeters, "Configured red marker distance.");
             Add("OverlayOpacity", settings.OverlayOpacity, "Configured overlay opacity percentage.");
             Add("SettingsPath", settingsPath, "Path to the live radar settings file.");
+            Add("TrackBackgroundEnabled", settings.TrackBackgroundEnabled, "Show the local reference track ribbon.");
+            Add("TrackBackgroundAvailable", false, "A SimHub map record is available for the current track.");
+            Add("TrackBackgroundAlwaysVisible", settings.TrackBackgroundAlwaysVisible,
+                "Keep the local track and radar visible without nearby opponents.");
+            Add("TrackScalePixelsPerMeter", settings.TrackScalePixelsPerMeter,
+                "Configured local-track drawing scale in pixels per meter.");
+            Add("ReferenceTrackWidthMeters", settings.ReferenceTrackWidthMeters, "Configured visual reference track width.");
+            Add("TrackRoadWidth", trackFrame.RoadWidthPixels, "Reference track width in overlay pixels.");
+            Add("TrackPlayerWidth", trackFrame.PlayerWidthPixels, "Proportional player width in overlay pixels.");
+            Add("TrackPlayerLength", trackFrame.PlayerLengthPixels, "Proportional player length in overlay pixels.");
+            Add("TrackMapSource", "", "Loaded SimHub map-record filename.");
+            Add("TrackProgressPercent", 0.0, "Current lap progress used by the local track background.");
+            for (int i = 0; i < TrackMapGeometry.PointCount; i++)
+            {
+                string index = (i + 1).ToString("00", CultureInfo.InvariantCulture);
+                Add("TrackPoint" + index + "X", TrackMapGeometry.CenterX, "Local track point center X.");
+                Add("TrackPoint" + index + "Y", TrackMapGeometry.CenterY, "Local track point center Y.");
+                Add("TrackPoint" + index + "Visible", false, "Local track point visibility.");
+            }
             Add("RawCarLeftRight", 0, "Raw iRacing CarLeftRight value.");
             Add("StatusText", "waiting for iRacing", "Radar diagnostic state.");
             SimHub.Logging.Current.Info("iRacing Radar plugin started");
@@ -138,38 +167,14 @@ namespace User.IRacingRadarPlugin
                 double now = clock.Elapsed.TotalSeconds;
                 RefreshSettings(now);
 
-                if (!connected)
+                qualifyingSession = connected && settings.HideInQualifying &&
+                    IsQualifyingSessionName(telemetry.SessionTypeName);
+                if (!connected || qualifyingSession)
                 {
-                    left = SideState.Hidden;
-                    right = SideState.Hidden;
-                    frontVisible = false;
-                    rearVisible = false;
-                    frontFarVisible = false;
-                    rearFarVisible = false;
-                    frontFarLabelVisible = false;
-                    rearFarLabelVisible = false;
-                    leftVisualOpacity = 0.0;
-                    rightVisualOpacity = 0.0;
-                    lastSideVisualUpdate = 0.0;
-                    frontMeters = double.NaN;
-                    rearMeters = double.NaN;
-                    frontSeconds = double.NaN;
-                    frontCatchSeconds = double.NaN;
-                    rearSeconds = double.NaN;
-                    frontProximityOpacity = 0.0;
-                    rearProximityOpacity = 0.0;
-                    frontNearProgress = 0.0;
-                    rearNearProgress = 0.0;
-                    frontNearBlend = 0.0;
-                    rearNearBlend = 0.0;
-                    frontFarProgress = 0.0;
-                    rearFarProgress = 0.0;
-                    frontMotion = MotionTracker.Empty;
-                    rearMotion = MotionTracker.Empty;
-                    lastProgressUpdate = 0.0;
-                    radarVisualOpacity = 0.0;
-                    radarVisible = false;
-                    Publish(false, nativeLeftRight);
+                    ResetVisualState();
+                    trackFrame = TrackVisualFrame.Empty(settings.ReferenceTrackWidthMeters,
+                        settings.TrackScalePixelsPerMeter);
+                    Publish(connected, nativeLeftRight);
                     return;
                 }
                 bool leftDetected = telemetry.SpotterCarLeft != 0 ||
@@ -182,12 +187,13 @@ namespace User.IRacingRadarPlugin
                 rightVisualOpacity = SmoothSideOpacity(rightVisualOpacity, rightDetected ? 100.0 : 0.0, sideVisualElapsed);
 
                 double[] nearby = GetRelativeDistances(telemetry, PositionRangeMeters);
+                double playerSpeedKmh = telemetry.SpeedKmh;
                 Opponent frontOpponent = FindNearestOpponent(telemetry, settings, true);
                 Opponent rearOpponent = FindNearestOpponent(telemetry, settings, false);
                 frontMeters = ReadOpponentDistance(frontOpponent);
                 rearMeters = ReadOpponentDistance(rearOpponent);
-                frontSeconds = ReadOpponentGap(frontOpponent);
-                rearSeconds = ReadOpponentGap(rearOpponent);
+                frontSeconds = ReadUsableOpponentGap(frontOpponent, frontMeters, playerSpeedKmh);
+                rearSeconds = ReadUsableOpponentGap(rearOpponent, rearMeters, playerSpeedKmh);
                 frontMotion = UpdateMotion(frontMotion, frontOpponent, frontMeters, now);
                 rearMotion = UpdateMotion(rearMotion, rearOpponent, rearMeters, now);
                 frontCatchSeconds = CalculateCatchSeconds(frontMeters, frontMotion.ClosingSpeed);
@@ -255,12 +261,61 @@ namespace User.IRacingRadarPlugin
                     Math.Max(frontRadarOpacity, rearRadarOpacity));
                 radarVisualOpacity = radarTargetOpacity;
                 radarVisible = radarVisualOpacity > 0.1;
+                trackFrame = settings.TrackBackgroundEnabled
+                    ? trackMap.Build(telemetry, settings.ReferenceTrackWidthMeters,
+                        settings.TrackScalePixelsPerMeter)
+                    : TrackVisualFrame.Empty(settings.ReferenceTrackWidthMeters,
+                        settings.TrackScalePixelsPerMeter);
+                if (settings.TrackBackgroundAlwaysVisible && trackFrame.Available)
+                {
+                    radarVisualOpacity = 100.0;
+                    radarVisible = true;
+                }
                 Publish(true, nativeLeftRight);
             }
             catch (Exception ex)
             {
                 Set("StatusText", "radar error: " + ex.GetType().Name);
             }
+        }
+
+        private void ResetVisualState()
+        {
+            left = SideState.Hidden;
+            right = SideState.Hidden;
+            frontVisible = false;
+            rearVisible = false;
+            frontFarVisible = false;
+            rearFarVisible = false;
+            frontFarLabelVisible = false;
+            rearFarLabelVisible = false;
+            leftVisualOpacity = 0.0;
+            rightVisualOpacity = 0.0;
+            lastSideVisualUpdate = 0.0;
+            frontMeters = double.NaN;
+            rearMeters = double.NaN;
+            frontSeconds = double.NaN;
+            frontCatchSeconds = double.NaN;
+            rearSeconds = double.NaN;
+            frontProximityOpacity = 0.0;
+            rearProximityOpacity = 0.0;
+            frontNearProgress = 0.0;
+            rearNearProgress = 0.0;
+            frontNearBlend = 0.0;
+            rearNearBlend = 0.0;
+            frontFarProgress = 0.0;
+            rearFarProgress = 0.0;
+            frontMotion = MotionTracker.Empty;
+            rearMotion = MotionTracker.Empty;
+            lastProgressUpdate = 0.0;
+            radarVisualOpacity = 0.0;
+            radarVisible = false;
+        }
+
+        private static bool IsQualifyingSessionName(string sessionTypeName)
+        {
+            return !string.IsNullOrWhiteSpace(sessionTypeName) &&
+                sessionTypeName.IndexOf("qual", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public void End(PluginManager pluginManager)
@@ -289,7 +344,7 @@ namespace User.IRacingRadarPlugin
                 if (ahead ? meters >= -0.25 : meters <= 0.25) continue;
 
                 double seconds = ReadOpponentGap(opponent);
-                bool triggered = ShouldTrigger(settings, meters, seconds);
+                bool triggered = ShouldTrigger(settings, meters, seconds, telemetry.SpeedKmh);
                 if (!triggered) continue;
 
                 double magnitude = Math.Abs(meters);
@@ -302,10 +357,11 @@ namespace User.IRacingRadarPlugin
 
             return nearest;
         }
-        private static bool ShouldTrigger(RadarSettings settings, double meters, double seconds)
+        private static bool ShouldTrigger(RadarSettings settings, double meters, double seconds, double playerSpeedKmh)
         {
             bool distanceTriggered = IsFinite(meters) && Math.Abs(meters) <= settings.RadarRangeMeters;
-            bool timeTriggered = IsFinite(seconds) && Math.Abs(seconds) <= settings.TimeAlertSeconds;
+            bool timeTriggered = IsUsableTimeGap(meters, seconds, playerSpeedKmh) &&
+                Math.Abs(seconds) <= settings.TimeAlertSeconds;
             if (settings.DisplayMode == "Distance") return distanceTriggered;
             if (settings.DisplayMode == "Time") return timeTriggered;
             return distanceTriggered || timeTriggered;
@@ -322,6 +378,25 @@ namespace User.IRacingRadarPlugin
             return opponent != null && opponent.RelativeGapToPlayer.HasValue && IsFinite(opponent.RelativeGapToPlayer.Value)
                 ? opponent.RelativeGapToPlayer.Value
                 : double.NaN;
+        }
+
+        private static double ReadUsableOpponentGap(Opponent opponent, double meters, double playerSpeedKmh)
+        {
+            double seconds = ReadOpponentGap(opponent);
+            return IsUsableTimeGap(meters, seconds, playerSpeedKmh) ? seconds : double.NaN;
+        }
+
+        private static bool IsUsableTimeGap(double meters, double seconds, double playerSpeedKmh)
+        {
+            if (!IsFinite(meters) || !IsFinite(seconds)) return false;
+
+            double referenceSpeedKmh = IsFinite(playerSpeedKmh)
+                ? Math.Abs(playerSpeedKmh) : TimeGapMinimumReferenceSpeedKmh;
+            referenceSpeedKmh = Math.Max(TimeGapMinimumReferenceSpeedKmh,
+                Math.Min(TimeGapMaximumReferenceSpeedKmh, referenceSpeedKmh));
+            double plausibleDistance = Math.Abs(seconds) * (referenceSpeedKmh / 3.6) *
+                TimeGapDistanceSpeedFactor + TimeGapDistanceMarginMeters;
+            return Math.Abs(meters) <= plausibleDistance;
         }
 
         private static double CalculateProximityOpacity(double meters, double seconds, RadarSettings settings)
@@ -598,6 +673,25 @@ namespace User.IRacingRadarPlugin
             Set("RearGreenArcEnabled", settings.RearGreenArcEnabled);
             Set("NearDistanceMeters", settings.NearDistanceMeters);
             Set("OverlayOpacity", settings.OverlayOpacity);
+            Set("TrackBackgroundEnabled", settings.TrackBackgroundEnabled);
+            Set("TrackBackgroundAlwaysVisible", settings.TrackBackgroundAlwaysVisible);
+            Set("TrackScalePixelsPerMeter", settings.TrackScalePixelsPerMeter);
+            Set("TrackBackgroundAvailable", trackFrame.Available);
+            Set("ReferenceTrackWidthMeters", settings.ReferenceTrackWidthMeters);
+            Set("TrackRoadWidth", trackFrame.RoadWidthPixels);
+            Set("TrackPlayerWidth", trackFrame.PlayerWidthPixels);
+            Set("TrackPlayerLength", trackFrame.PlayerLengthPixels);
+            Set("TrackMapSource", trackMap.SourceName ?? string.Empty);
+            Set("TrackProgressPercent", trackFrame.ProgressPercent);
+            for (int i = 0; i < TrackMapGeometry.PointCount; i++)
+            {
+                string index = (i + 1).ToString("00", CultureInfo.InvariantCulture);
+                TrackVisualPoint point = trackFrame.Points[i];
+                Set("TrackPoint" + index + "X", point.X);
+                Set("TrackPoint" + index + "Y", point.Y);
+                Set("TrackPoint" + index + "Visible", connected && radarVisible &&
+                    settings.TrackBackgroundEnabled && trackFrame.Available && point.Visible);
+            }
             Set("LeftVisible", left.Visible);
             Set("RightVisible", right.Visible);
             Set("LeftVisualOpacity", leftVisualOpacity);
@@ -633,12 +727,15 @@ namespace User.IRacingRadarPlugin
             Set("FrontClosingSpeed", frontMotion.ClosingSpeed);
             Set("FrontCatchSeconds", IsFinite(frontCatchSeconds) ? frontCatchSeconds : 0.0);
             Set("CatchEstimateEnabled", settings.CatchEstimateEnabled);
+            Set("HideInQualifying", settings.HideInQualifying);
+            Set("QualifyingSession", qualifyingSession);
             Set("RearClosingSpeed", rearMotion.ClosingSpeed);
             Set("LabelFontSize", settings.LabelFontSize);
             Set("DisplayMode", settings.DisplayMode);
             Set("RawCarLeftRight", nativeLeftRight);
 
             string state = !connected ? "waiting for iRacing" :
+                qualifyingSession ? "QUALIFYING HIDDEN" :
                 left.Visible && right.Visible ? "LEFT + RIGHT" :
                 left.Visible ? "LEFT" : right.Visible ? "RIGHT" : "CLEAR";
             Set("StatusText", string.Format(CultureInfo.InvariantCulture,

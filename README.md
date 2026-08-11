@@ -9,6 +9,8 @@
 一个用于 iRacing 的 SimHub 车辆雷达覆盖层。下载编译好的发布包后，直接解压到 SimHub 根目录即可使用。
 
 > **重要提示：** 当车辆位于本车侧面时，雷达只能显示车辆在左侧还是右侧，以及它相对本车偏前或偏后；**无法提供两车之间的实际横向距离**。侧面红色标记的位置和间隔不能作为横向间距或碰撞余量使用。
+> **赛道背景说明：** 局部赛道背景使用 SimHub 保存的真实中心轨迹，但 iRacing 不提供逐点赛道边界宽度。界面中的“参考赛道宽度”只用于视觉比例，不能用来判断车辆距离真实赛道边缘还有多少空间。
+
 
 ### 演示视频
 
@@ -18,7 +20,7 @@
 
 ### 雷达状态说明
 
-雷达中央的灰色区域代表本车，上方代表车头方向，下方代表车尾方向。以下四张图按顺序展示一辆对手车辆从后方靠近、并排超车，再到前方远离时的雷达画面。
+雷达中央的灰色车辆标记代表本车，上方代表车头方向，下方代表车尾方向。本车标记保持较大的清晰尺寸，局部赛道仅作为当前路段方向参考。以下四张图按顺序展示一辆对手车辆从后方靠近、并排超车，再到前方远离时的雷达画面。
 
 #### 1. 后方远处靠近
 
@@ -94,9 +96,14 @@ SimHub\
 #### 显示效果
 
 - **前方绿色提示条**和**后方绿色提示条**可以分别开启或关闭。
+- **排位赛时隐藏雷达**默认开启；插件识别到排位赛时会隐藏整个雷达和赛道背景，进入练习或正赛后自动恢复。
 - **数值字体大小**控制前后车辆距离和相对时间文字的大小。
 - **整体透明度**控制雷达在游戏画面上的可见程度。
 - **预计追上时间**开启后，当本车快速接近前车时，前方数值下方会显示 `Catch x.xs`。该数值根据当前距离和接近速度估算，表示预计追上前车的时间，不代表一定能完成超车。
+- **局部赛道背景**开启后，会读取 SimHub 当前赛道的地图记录并显示附近的参考轨迹；没有可用地图记录时自动隐藏。
+- **始终显示赛道和雷达**开启后，即使附近没有车辆也会保留赛道和雷达；关闭后，仅在车辆靠近并触发雷达时显示。
+- **赛道缩放比例**可设置为 `2–12 px/m`。数值越小，可看到的参考赛道路段越长；本车标记保持较大的清晰尺寸，不随赛道比例缩小。
+- **参考赛道宽度**控制背景带的视觉宽度。该值不是 iRacing 提供的真实赛道边界宽度。
 
 #### 雷达效果预览
 
@@ -128,6 +135,8 @@ An iRacing radar overlay for SimHub. Download the prebuilt release package and e
 
 > **Important:** When a car is alongside, the radar can only show whether it is on the left or right and whether it is relatively ahead or behind. It **cannot provide the actual lateral distance between the two cars**. Do not use the position or spacing of the red side marker as a measure of lateral clearance or collision margin.
 
+> **Track-background note:** The local background uses SimHub's recorded real centre line, but iRacing does not expose per-position track-edge width. The **reference track width** is visual scale only and must not be used to judge clearance to a real track edge.
+
 ### Demo video
 
 [![iRacing Radar demo video](https://img.youtube.com/vi/-9Pv4CWri6g/maxresdefault.jpg)](https://youtu.be/-9Pv4CWri6g)
@@ -136,7 +145,7 @@ Click the image above to watch the radar demonstration on YouTube.
 
 ### Radar states
 
-The grey area in the centre represents your car. The top is the front and the bottom is the rear. The following images show an opponent approaching from behind, moving alongside, and pulling away in front.
+The proportional grey vehicle marker in the centre represents your car. The top is the front and the bottom is the rear. The player marker, local track distance, and reference track width use the same scale. The following images show an opponent approaching from behind, moving alongside, and pulling away in front.
 
 #### 1. Approaching from behind
 
@@ -212,9 +221,15 @@ Run **IRacingRadar.Configurator.exe** to manage every radar setting through the 
 #### Appearance
 
 - The **front green alert** and **rear green alert** can be enabled independently.
+- **Hide during qualifying** is enabled by default. The complete radar and track background are hidden in qualifying and return automatically in practice or race sessions.
 - **Label size** controls the front/rear distance and relative-time text size.
 - **Overlay opacity** controls how strongly the radar appears over the game.
 - When **catch-time estimate** is enabled and the player is rapidly closing on a front car, `Catch x.xs` appears below the front values. It estimates the time to catch the car from the current distance and closing speed; it does not guarantee a completed overtake.
+
+- **Local track background** reads SimHub's current track-map record and draws the nearby reference line. It hides automatically when no map record is available.
+- Enable **Always show track and radar** to keep them visible without nearby cars. Disable it to show them only when an approaching car triggers the radar.
+- **Track scale** is adjustable from `2–12 px/m`. Lower values show a longer reference section; the player marker keeps a larger readable size instead of shrinking with the track.
+- **Reference track width** controls the visual ribbon width. It is not a real track-edge width supplied by iRacing.
 
 #### Radar preview
 

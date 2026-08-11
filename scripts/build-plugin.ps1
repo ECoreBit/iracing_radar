@@ -27,7 +27,8 @@ $arguments += $references | ForEach-Object { "/reference:$(Join-Path $SimHubPath
 $arguments += @(
     (Join-Path $project 'IRacingRadarPlugin.cs'),
     (Join-Path $project 'RadarMath.cs'),
-    (Join-Path $project 'RadarSettings.cs')
+    (Join-Path $project 'RadarSettings.cs'),
+    (Join-Path $project 'TrackMapGeometry.cs')
 )
 
 & $csc @arguments

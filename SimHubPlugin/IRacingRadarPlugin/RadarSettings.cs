@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 
@@ -13,6 +13,11 @@ namespace User.IRacingRadarPlugin
         public bool FrontGreenArcEnabled { get; private set; }
         public bool RearGreenArcEnabled { get; private set; }
         public bool CatchEstimateEnabled { get; private set; }
+        public bool HideInQualifying { get; private set; }
+        public bool TrackBackgroundEnabled { get; private set; }
+        public bool TrackBackgroundAlwaysVisible { get; private set; }
+        public double TrackScalePixelsPerMeter { get; private set; }
+        public double ReferenceTrackWidthMeters { get; private set; }
         public double OverlayOpacity { get; private set; }
         public string DisplayMode { get; private set; }
         public double LabelFontSize { get; private set; }
@@ -28,6 +33,11 @@ namespace User.IRacingRadarPlugin
                 FrontGreenArcEnabled = true,
                 RearGreenArcEnabled = true,
                 CatchEstimateEnabled = true,
+                HideInQualifying = true,
+                TrackBackgroundEnabled = true,
+                TrackBackgroundAlwaysVisible = false,
+                TrackScalePixelsPerMeter = 3.5,
+                ReferenceTrackWidthMeters = 10.5,
                 OverlayOpacity = 92.0,
                 DisplayMode = "Both",
                 LabelFontSize = 22.0
@@ -70,6 +80,23 @@ namespace User.IRacingRadarPlugin
                     value.CatchEstimateEnabled = ParseBoolean(text, value.CatchEstimateEnabled);
                     continue;
                 }
+                if (key.Equals("HideInQualifying", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.HideInQualifying = ParseBoolean(text, value.HideInQualifying);
+                    continue;
+                }
+                if (key.Equals("TrackBackgroundEnabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.TrackBackgroundEnabled = ParseBoolean(text, value.TrackBackgroundEnabled);
+                    continue;
+                }
+                if (key.Equals("TrackBackgroundAlwaysVisible", StringComparison.OrdinalIgnoreCase) ||
+                    key.Equals("TrackBackgroundTestMode", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.TrackBackgroundAlwaysVisible = ParseBoolean(text, value.TrackBackgroundAlwaysVisible);
+                    continue;
+                }
+
 
                 double parsed;
                 if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed)) continue;
@@ -86,6 +113,10 @@ namespace User.IRacingRadarPlugin
                     value.OverlayOpacity = Clamp(parsed, 0.0, 100.0);
                 else if (key.Equals("LabelFontSize", StringComparison.OrdinalIgnoreCase))
                     value.LabelFontSize = Clamp(parsed, 10.0, 36.0);
+                else if (key.Equals("ReferenceTrackWidthMeters", StringComparison.OrdinalIgnoreCase))
+                    value.ReferenceTrackWidthMeters = Clamp(parsed, 5.0, 20.0);
+                else if (key.Equals("TrackScalePixelsPerMeter", StringComparison.OrdinalIgnoreCase))
+                    value.TrackScalePixelsPerMeter = Clamp(parsed, 2.0, 12.0);
             }
 
             value.NearDistanceMeters = Math.Min(value.NearDistanceMeters, value.RadarRangeMeters);
