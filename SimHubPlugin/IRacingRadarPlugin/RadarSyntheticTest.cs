@@ -1,4 +1,4 @@
-﻿using GameReaderCommon;
+using GameReaderCommon;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -33,6 +33,7 @@ internal static class RadarSyntheticTest
         Type settingsType = plugin.GetType("User.IRacingRadarPlugin.RadarSettings", true);
         MethodInfo normalizeMode = settingsType.GetMethod("NormalizeDisplayMode", BindingFlags.NonPublic | BindingFlags.Static);
         MethodInfo parseBoolean = settingsType.GetMethod("ParseBoolean", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo isQualifying = pluginType.GetMethod("IsQualifyingSessionName", BindingFlags.NonPublic | BindingFlags.Static);
         object settings = settingsType.GetMethod("Default", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
         settingsType.GetProperty("DisplayMode").GetSetMethod(true).Invoke(settings, new object[] { "None" });
         object pluginInstance = Activator.CreateInstance(pluginType);
@@ -42,17 +43,58 @@ internal static class RadarSyntheticTest
         bool noneModePass = (string)normalizeMode.Invoke(null, new object[] { "none" }) == "None" &&
             (string)normalizeMode.Invoke(null, new object[] { "invalid" }) == "Both" &&
             (string)buildDisplayText.Invoke(pluginInstance, new object[] { "F", 12.0, 0.4 }) == string.Empty &&
-            (bool)shouldTrigger.Invoke(null, new object[] { settings, 100.0, 0.5 }) &&
-            (bool)shouldTrigger.Invoke(null, new object[] { settings, 60.0, 1.0 }) &&
-            !(bool)shouldTrigger.Invoke(null, new object[] { settings, 100.0, 1.0 });
+            (bool)shouldTrigger.Invoke(null, new object[] { settings, 100.0, 0.5, 400.0 }) &&
+            (bool)shouldTrigger.Invoke(null, new object[] { settings, 60.0, 1.0, 200.0 }) &&
+            !(bool)shouldTrigger.Invoke(null, new object[] { settings, 100.0, 1.0, 200.0 });
         bool greenArcSwitchPass = Math.Abs((double)settingsType.GetProperty("RadarFadeBandPercent").GetValue(settings, null) - 15.0) < 0.001 &&
             (bool)settingsType.GetProperty("FrontGreenArcEnabled").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("RearGreenArcEnabled").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("CatchEstimateEnabled").GetValue(settings, null) &&
+            (bool)settingsType.GetProperty("HideInQualifying").GetValue(settings, null) &&
+            (bool)settingsType.GetProperty("TrackBackgroundEnabled").GetValue(settings, null) &&
+            !(bool)settingsType.GetProperty("TrackBackgroundAlwaysVisible").GetValue(settings, null) &&
+            Math.Abs((double)settingsType.GetProperty("TrackScalePixelsPerMeter").GetValue(settings, null) - 3.5) < 0.001 &&
+            Math.Abs((double)settingsType.GetProperty("ReferenceTrackWidthMeters").GetValue(settings, null) - 10.5) < 0.001 &&
             !(bool)parseBoolean.Invoke(null, new object[] { "false", true }) &&
             !(bool)parseBoolean.Invoke(null, new object[] { "off", true }) &&
             (bool)parseBoolean.Invoke(null, new object[] { "yes", false }) &&
             (bool)parseBoolean.Invoke(null, new object[] { "invalid", true });
+
+        bool qualifyingSessionPass =
+            (bool)isQualifying.Invoke(null, new object[] { "Lone Qualify" }) &&
+            (bool)isQualifying.Invoke(null, new object[] { "Open Qualifying" }) &&
+            !(bool)isQualifying.Invoke(null, new object[] { "Race" }) &&
+            !(bool)isQualifying.Invoke(null, new object[] { "Practice" });
+
+        MethodInfo usableTimeGap = pluginType.GetMethod("IsUsableTimeGap", BindingFlags.NonPublic | BindingFlags.Static);
+        bool staleGapPass =
+            !(bool)usableTimeGap.Invoke(null, new object[] { 300.0, 0.0, 250.0 }) &&
+            !(bool)usableTimeGap.Invoke(null, new object[] { -280.0, 0.1, 250.0 }) &&
+            (bool)usableTimeGap.Invoke(null, new object[] { 80.0, 0.7, 300.0 }) &&
+            !(bool)shouldTrigger.Invoke(null, new object[] { settings, 300.0, 0.0, 250.0 }) &&
+            (bool)shouldTrigger.Invoke(null, new object[] { settings, 60.0, 0.0, 250.0 });
+
+        bool distantMatrixPass = true;
+        string[] triggerModes = new[] { "None", "Both", "Time", "Distance" };
+        foreach (string mode in triggerModes)
+        {
+            settingsType.GetProperty("DisplayMode").GetSetMethod(true).Invoke(settings, new object[] { mode });
+            for (double speed = 0.0; speed <= 450.0; speed += 50.0)
+            {
+                for (double distance = 200.0; distance <= 1000.0; distance += 40.0)
+                {
+                    for (double staleSeconds = 0.0; staleSeconds <= 0.7001; staleSeconds += 0.1)
+                    {
+                        if ((bool)shouldTrigger.Invoke(null,
+                            new object[] { settings, distance, staleSeconds, speed }) ||
+                            (bool)shouldTrigger.Invoke(null,
+                            new object[] { settings, -distance, -staleSeconds, speed }))
+                            distantMatrixPass = false;
+                    }
+                }
+            }
+        }
+        settingsType.GetProperty("DisplayMode").GetSetMethod(true).Invoke(settings, new object[] { "None" });
 
         MethodInfo thresholdOpacity = pluginType.GetMethod("CalculateThresholdOpacity", BindingFlags.NonPublic | BindingFlags.Static);
         MethodInfo directionalOpacity = pluginType.GetMethod("CalculateDirectionalRadarOpacity", BindingFlags.NonPublic | BindingFlags.Static);
@@ -93,6 +135,20 @@ internal static class RadarSyntheticTest
             Console.WriteLine("FAIL qualifying ghost opponent was not excluded");
             return 1;
         }
+        FakeStatus raceStart = new FakeStatus();
+        SetStatusDouble(raceStart, "SpeedKmh", 250.0);
+        Opponent spreadingFront = AddWithGap(raceStart, -12.0, 0.2);
+        Opponent spreadingRear = AddWithGap(raceStart, 14.0, 0.2);
+        bool startFrontDetected = nearestOpponent.Invoke(null, new object[] { raceStart, settings, true }) != null;
+        bool startRearDetected = nearestOpponent.Invoke(null, new object[] { raceStart, settings, false }) != null;
+        spreadingFront.RelativeDistanceToPlayer = -320.0;
+        spreadingFront.RelativeGapToPlayer = 0.0;
+        spreadingRear.RelativeDistanceToPlayer = 280.0;
+        spreadingRear.RelativeGapToPlayer = 0.1;
+        bool fieldSpreadPass = startFrontDetected && startRearDetected &&
+            nearestOpponent.Invoke(null, new object[] { raceStart, settings, true }) == null &&
+            nearestOpponent.Invoke(null, new object[] { raceStart, settings, false }) == null;
+
         Type math = plugin.GetType("User.IRacingRadarPlugin.RadarMath", true);
         MethodInfo top = math.GetMethod("CalculateTopFromRelativeMeters");
         double ahead = (double)top.Invoke(null, new object[] { -6.0, 66.0 });
@@ -148,9 +204,13 @@ internal static class RadarSyntheticTest
         Console.WriteLine(motionPass ? "PASS closing/separating direction" : "FAIL closing/separating direction");
         Console.WriteLine(noneModePass ? "PASS None display mode" : "FAIL None display mode");
         Console.WriteLine(greenArcSwitchPass ? "PASS green arc switches" : "FAIL green arc switches");
+        Console.WriteLine(qualifyingSessionPass ? "PASS qualifying-session detection" : "FAIL qualifying-session detection");
+        Console.WriteLine(staleGapPass ? "PASS stale time-gap rejection after field spread" : "FAIL stale time-gap rejection after field spread");
+        Console.WriteLine(fieldSpreadPass ? "PASS start-grid opponents clear after spreading hundreds of metres" : "FAIL start-grid opponents clear after spreading hundreds of metres");
+        Console.WriteLine(distantMatrixPass ? "PASS 200-1000m stale-gap stress matrix in all display modes" : "FAIL 200-1000m stale-gap stress matrix in all display modes");
         Console.WriteLine(radarOpacityPass ? "PASS distance/time radar opacity" : "FAIL distance/time radar opacity");
         Console.WriteLine(catchEstimatePass ? "PASS front catch-time estimate" : "FAIL front catch-time estimate");
-        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && radarOpacityPass && catchEstimatePass ? 0 : 2;
+        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && qualifyingSessionPass && staleGapPass && fieldSpreadPass && distantMatrixPass && radarOpacityPass && catchEstimatePass ? 0 : 2;
     }
 
     private static void AddPit(FakeStatus data, double meters)
@@ -167,6 +227,22 @@ internal static class RadarSyntheticTest
         data.Opponents.Add(opponent);
         if (meters < 0.0) data.Ahead.Add(opponent);
         else data.Behind.Add(opponent);
+    }
+
+    private static Opponent AddWithGap(FakeStatus data, double meters, double seconds)
+    {
+        Opponent opponent = CreateOpponent(meters);
+        opponent.RelativeGapToPlayer = seconds;
+        data.Opponents.Add(opponent);
+        if (meters < 0.0) data.Ahead.Add(opponent);
+        else data.Behind.Add(opponent);
+        return opponent;
+    }
+
+    private static void SetStatusDouble(FakeStatus data, string property, double value)
+    {
+        typeof(StatusDataBase).GetProperty(property).GetSetMethod(true)
+            .Invoke(data, new object[] { value });
     }
 
     private static void AddGhost(FakeStatus data, double meters)

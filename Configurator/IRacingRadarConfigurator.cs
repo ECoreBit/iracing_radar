@@ -38,6 +38,11 @@ namespace IRacingRadarConfigurator
         private readonly CheckBox frontArc = new CheckBox();
         private readonly CheckBox rearArc = new CheckBox();
         private readonly CheckBox catchEstimate = new CheckBox();
+        private readonly CheckBox hideInQualifying = new CheckBox();
+        private readonly CheckBox trackBackground = new CheckBox();
+        private readonly CheckBox trackAlwaysVisible = new CheckBox();
+        private readonly NumericUpDown trackScale = new NumericUpDown();
+        private readonly NumericUpDown referenceTrackWidth = new NumericUpDown();
         private readonly NumericUpDown time = new NumericUpDown();
         private readonly NumericUpDown fade = new NumericUpDown();
         private readonly NumericUpDown fontSize = new NumericUpDown();
@@ -62,8 +67,8 @@ namespace IRacingRadarConfigurator
             this.preferencesPath = preferencesPath;
             Text = "iRacing Radar 配置工具 / Configurator";
             StartPosition = FormStartPosition.CenterScreen;
-            MinimumSize = new Size(1120, 780);
-            Size = new Size(1240, 820);
+            MinimumSize = new Size(1120, 940);
+            Size = new Size(1240, 1015);
             BackColor = Color.FromArgb(17, 21, 28);
             ForeColor = Color.FromArgb(235, 240, 247);
             Font = new Font("Segoe UI", 9.5f);
@@ -125,6 +130,18 @@ namespace IRacingRadarConfigurator
             fields.Controls.Add(rearArc);
             ConfigureCheck(catchEstimate, "显示预计追上时间 / Catch-time estimate");
             fields.Controls.Add(catchEstimate);
+            ConfigureCheck(hideInQualifying, "排位赛时隐藏雷达 / Hide during qualifying");
+            fields.Controls.Add(hideInQualifying);
+            ConfigureCheck(trackBackground, "\u663e\u793a\u5c40\u90e8\u8d5b\u9053\u80cc\u666f / Local track background");
+            fields.Controls.Add(trackBackground);
+            ConfigureCheck(trackAlwaysVisible, "\u59cb\u7ec8\u663e\u793a\u8d5b\u9053\u548c\u96f7\u8fbe / Always show track and radar");
+            fields.Controls.Add(trackAlwaysVisible);
+            ConfigureNumber(trackScale, 2, 12, 3.5m, 1, 0.5m, " px/m");
+            fields.Controls.Add(Field("\u8d5b\u9053\u7f29\u653e\u6bd4\u4f8b / Track scale",
+                "\u6570\u503c\u8d8a\u5c0f\uff0c\u53ef\u89c1\u7684\u53c2\u8003\u8d5b\u9053\u8def\u6bb5\u8d8a\u957f\uff1b\u4e0d\u6539\u53d8\u672c\u8f66\u6807\u8bb0\u5927\u5c0f\u3002 / Lower values show a longer reference path without resizing the player marker.", trackScale));
+            ConfigureNumber(referenceTrackWidth, 5, 20, 10.5m, 1, 0.5m, " m");
+            fields.Controls.Add(Field("\u53c2\u8003\u8d5b\u9053\u5bbd\u5ea6 / Reference track width",
+                "\u7528\u4e8e\u89c6\u89c9\u6bd4\u4f8b\uff1biRacing \u4e0d\u63d0\u4f9b\u771f\u5b9e\u8d5b\u9053\u8fb9\u754c\u5bbd\u5ea6\u3002", referenceTrackWidth));
             ConfigureNumber(fontSize, 10, 36, 22, 0, 1, " px");
             fields.Controls.Add(Field("数值字体大小 / Label size", "前后距离与相对时间文字大小。", fontSize));
             ConfigureNumber(opacity, 0, 100, 92, 0, 1, " %");
@@ -202,7 +219,21 @@ namespace IRacingRadarConfigurator
             frontArc.CheckedChanged += delegate { if (!loading) OnGreenArcSettingChanged(); };
             rearArc.CheckedChanged += delegate { if (!loading) OnGreenArcSettingChanged(); };
             catchEstimate.CheckedChanged += delegate { if (!loading) UpdatePreview(); };
+            hideInQualifying.CheckedChanged += delegate { if (!loading) UpdatePreview(); };
             scenario.SelectedIndexChanged += changed; previewDistance.ValueChanged += changed;
+            trackBackground.CheckedChanged += delegate
+            {
+                if (!loading)
+                {
+                    trackAlwaysVisible.Enabled = trackBackground.Checked;
+                    trackScale.Enabled = trackBackground.Checked;
+                    referenceTrackWidth.Enabled = trackBackground.Checked;
+                    UpdatePreview();
+                }
+            };
+            trackAlwaysVisible.CheckedChanged += changed;
+            trackScale.ValueChanged += changed;
+            referenceTrackWidth.ValueChanged += changed;
             previewTime.ValueChanged += changed; motion.SelectedIndexChanged += changed;
         }
 
@@ -288,8 +319,16 @@ namespace IRacingRadarConfigurator
                 frontArc.Checked = settings.FrontGreenArcEnabled;
                 rearArc.Checked = settings.RearGreenArcEnabled;
                 catchEstimate.Checked = settings.CatchEstimateEnabled;
+                hideInQualifying.Checked = settings.HideInQualifying;
                 time.Value = DecimalValue(time, settings.TimeAlertSeconds);
                 fade.Value = DecimalValue(fade, settings.RadarFadeBandPercent);
+                trackBackground.Checked = settings.TrackBackgroundEnabled;
+                trackAlwaysVisible.Checked = settings.TrackBackgroundAlwaysVisible;
+                trackAlwaysVisible.Enabled = settings.TrackBackgroundEnabled;
+                trackScale.Enabled = settings.TrackBackgroundEnabled;
+                referenceTrackWidth.Enabled = settings.TrackBackgroundEnabled;
+                trackScale.Value = DecimalValue(trackScale, settings.TrackScalePixelsPerMeter);
+                referenceTrackWidth.Value = DecimalValue(referenceTrackWidth, settings.ReferenceTrackWidthMeters);
                 fontSize.Value = DecimalValue(fontSize, settings.LabelFontSize);
                 opacity.Value = DecimalValue(opacity, settings.OverlayOpacity);
                 if (scenario.SelectedIndex < 0) scenario.SelectedIndex = 0;
@@ -311,9 +350,14 @@ namespace IRacingRadarConfigurator
                 FrontGreenArcEnabled = frontArc.Checked,
                 RearGreenArcEnabled = rearArc.Checked,
                 CatchEstimateEnabled = catchEstimate.Checked,
+                HideInQualifying = hideInQualifying.Checked,
                 TimeAlertSeconds = (double)time.Value,
                 RadarFadeBandPercent = (double)fade.Value,
                 LabelFontSize = (double)fontSize.Value,
+                TrackBackgroundEnabled = trackBackground.Checked,
+                TrackBackgroundAlwaysVisible = trackAlwaysVisible.Checked,
+                TrackScalePixelsPerMeter = (double)trackScale.Value,
+                ReferenceTrackWidthMeters = (double)referenceTrackWidth.Value,
                 OverlayOpacity = (double)opacity.Value
             };
         }

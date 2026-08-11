@@ -41,6 +41,11 @@ foreach ($name in $requiredItems.Keys) {
     $actual = "$($item.Left),$($item.Top),$($item.Width),$($item.Height),$($item.BackgroundColor)"
     if ($actual -ne $requiredItems[$name]) { throw "Preview contract changed for ${name}: $actual" }
 }
+$trackPoints = @($overlay.Screens[0].Items | Where-Object { $_.Name -like 'Local track point *' })
+if ($trackPoints.Count -ne 48) {
+    throw "Expected 48 proportional local-track points, found $($trackPoints.Count)."
+}
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead($resourcesPath)
 try {

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $overlayPath = Join-Path $root 'SimHubPlugin\Overlay\iRacing Radar.djson'
 $previewPath = Join-Path $root 'Configurator\OverlayRadarPreviewControl.cs'
@@ -21,6 +21,10 @@ $items = @{
     'Left position rail' = '175,34,2,192,#80D51B2A'
     'Right position rail' = '243,34,2,192,#80D51B2A'
 }
+$trackPoints = @($overlay.Screens[0].Items | Where-Object Name -like 'Local track point *')
+if ($trackPoints.Count -ne 48) { throw 'Overlay must contain 48 local-track points.' }
+if ($preview -notmatch 'DrawReferenceTrack') { throw 'Preview local-track rendering is missing.' }
+
 foreach ($name in $items.Keys) {
     $item = $overlay.Screens[0].Items | Where-Object Name -eq $name | Select-Object -First 1
     if (-not $item) { throw "Missing Overlay item: $name" }
@@ -44,7 +48,8 @@ $patterns = @(
     'RectangleF\(81, 1, 258, 258\), "#52101620"',
     'RectangleF\(209, 8, 2, 244\), "#66D8E1E9"',
     'RectangleF\(199, 129, 22, 2\), "#78E4EBF2"',
-    'RectangleF\(201, 109, 18, 42\), "#FF727E8A"',
+    'playerWidth = 12f',
+    'DrawReferenceTrack\(g, radarOpacity\)',
     '129, "#88DDE6EE", 2',
     '7, "#B8E8EDF2", 1',
     '7, "#B8FF7A82", 1',

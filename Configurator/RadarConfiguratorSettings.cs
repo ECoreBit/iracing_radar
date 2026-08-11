@@ -15,6 +15,11 @@ namespace IRacingRadarConfigurator
         public bool FrontGreenArcEnabled { get; set; }
         public bool RearGreenArcEnabled { get; set; }
         public bool CatchEstimateEnabled { get; set; }
+        public bool HideInQualifying { get; set; }
+        public bool TrackBackgroundEnabled { get; set; }
+        public bool TrackBackgroundAlwaysVisible { get; set; }
+        public double TrackScalePixelsPerMeter { get; set; }
+        public double ReferenceTrackWidthMeters { get; set; }
         public double TimeAlertSeconds { get; set; }
         public double RadarFadeBandPercent { get; set; }
         public double LabelFontSize { get; set; }
@@ -30,6 +35,11 @@ namespace IRacingRadarConfigurator
                 FrontGreenArcEnabled = true,
                 RearGreenArcEnabled = true,
                 CatchEstimateEnabled = true,
+                HideInQualifying = true,
+                TrackBackgroundEnabled = true,
+                TrackBackgroundAlwaysVisible = false,
+                TrackScalePixelsPerMeter = 3.5,
+                ReferenceTrackWidthMeters = 10.5,
                 TimeAlertSeconds = 0.7,
                 RadarFadeBandPercent = 15.0,
                 LabelFontSize = 22.0,
@@ -64,6 +74,13 @@ namespace IRacingRadarConfigurator
                     value.RearGreenArcEnabled = boolean;
                 else if (key.Equals("CatchEstimateEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
                     value.CatchEstimateEnabled = boolean;
+                else if (key.Equals("HideInQualifying", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
+                    value.HideInQualifying = boolean;
+                else if (key.Equals("TrackBackgroundEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
+                    value.TrackBackgroundEnabled = boolean;
+                else if ((key.Equals("TrackBackgroundAlwaysVisible", StringComparison.OrdinalIgnoreCase) ||
+                    key.Equals("TrackBackgroundTestMode", StringComparison.OrdinalIgnoreCase)) && TryBoolean(raw, out boolean))
+                    value.TrackBackgroundAlwaysVisible = boolean;
                 else if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
                 {
                     if (key.Equals("RadarRangeMeters", StringComparison.OrdinalIgnoreCase)) value.RadarRangeMeters = Clamp(number, 5, 200);
@@ -72,6 +89,8 @@ namespace IRacingRadarConfigurator
                     else if (key.Equals("RadarFadeBandPercent", StringComparison.OrdinalIgnoreCase)) value.RadarFadeBandPercent = Clamp(number, 1, 50);
                     else if (key.Equals("LabelFontSize", StringComparison.OrdinalIgnoreCase)) value.LabelFontSize = Clamp(number, 10, 36);
                     else if (key.Equals("OverlayOpacity", StringComparison.OrdinalIgnoreCase)) value.OverlayOpacity = Clamp(number, 0, 100);
+                    else if (key.Equals("ReferenceTrackWidthMeters", StringComparison.OrdinalIgnoreCase)) value.ReferenceTrackWidthMeters = Clamp(number, 5, 20);
+                    else if (key.Equals("TrackScalePixelsPerMeter", StringComparison.OrdinalIgnoreCase)) value.TrackScalePixelsPerMeter = Clamp(number, 2, 12);
                 }
             }
             value.NearDistanceMeters = Math.Min(value.NearDistanceMeters, value.RadarRangeMeters);
@@ -87,6 +106,8 @@ namespace IRacingRadarConfigurator
             RadarFadeBandPercent = Clamp(RadarFadeBandPercent, 1, 50);
             LabelFontSize = Clamp(LabelFontSize, 10, 36);
             OverlayOpacity = Clamp(OverlayOpacity, 0, 100);
+            ReferenceTrackWidthMeters = Clamp(ReferenceTrackWidthMeters, 5, 20);
+            TrackScalePixelsPerMeter = Clamp(TrackScalePixelsPerMeter, 2, 12);
         }
 
         public string UpdateDocument(string original)
@@ -124,7 +145,12 @@ namespace IRacingRadarConfigurator
             yield return Pair("FrontGreenArcEnabled", FrontGreenArcEnabled ? "true" : "false");
             yield return Pair("RearGreenArcEnabled", RearGreenArcEnabled ? "true" : "false");
             yield return Pair("CatchEstimateEnabled", CatchEstimateEnabled ? "true" : "false");
+            yield return Pair("HideInQualifying", HideInQualifying ? "true" : "false");
             yield return Pair("TimeAlertSeconds", Number(TimeAlertSeconds));
+            yield return Pair("TrackBackgroundEnabled", TrackBackgroundEnabled ? "true" : "false");
+            yield return Pair("TrackBackgroundAlwaysVisible", TrackBackgroundAlwaysVisible ? "true" : "false");
+            yield return Pair("TrackScalePixelsPerMeter", Number(TrackScalePixelsPerMeter));
+            yield return Pair("ReferenceTrackWidthMeters", Number(ReferenceTrackWidthMeters));
             yield return Pair("RadarFadeBandPercent", Number(RadarFadeBandPercent));
             yield return Pair("LabelFontSize", Number(LabelFontSize));
             yield return Pair("OverlayOpacity", Number(OverlayOpacity));
