@@ -20,7 +20,7 @@
 
 ### 雷达状态说明
 
-雷达中央的灰色车辆标记代表本车，上方代表车头方向，下方代表车尾方向。本车标记保持较大的清晰尺寸，局部赛道仅作为当前路段方向参考。以下四张图按顺序展示一辆对手车辆从后方靠近、并排超车，再到前方远离时的雷达画面。
+雷达中央的灰色车辆标记代表本车，上方代表车头方向，下方代表车尾方向。本车图标大小可以在配置工具中单独调节，局部赛道仅作为当前路段方向参考。以下四张图按顺序展示一辆对手车辆从后方靠近、并排超车，再到前方远离时的雷达画面。
 
 #### 1. 后方远处靠近
 
@@ -100,10 +100,11 @@ SimHub\
 - **数值字体大小**控制前后车辆距离和相对时间文字的大小。
 - **整体透明度**控制雷达在游戏画面上的可见程度。
 - **预计追上时间**开启后，当本车快速接近前车时，前方数值下方会显示 `Catch x.xs`。该数值根据当前距离和接近速度估算，表示预计追上前车的时间，不代表一定能完成超车。
-- **局部赛道背景**开启后，会读取 SimHub 当前赛道的地图记录并显示附近的参考轨迹；没有可用地图记录时自动隐藏。
+- **局部赛道背景**开启后，会读取 SimHub 当前赛道的地图记录，并以连续实心赛道带显示附近的参考轨迹；没有可用地图记录时自动隐藏。
 - **始终显示赛道和雷达**开启后，即使附近没有车辆也会保留赛道和雷达；关闭后，仅在车辆靠近并触发雷达时显示。
 - **赛道缩放比例**可设置为 `2–12 px/m`。数值越小，可看到的参考赛道路段越长；本车标记保持较大的清晰尺寸，不随赛道比例缩小。
 - **参考赛道宽度**控制背景带的视觉宽度。该值不是 iRacing 提供的真实赛道边界宽度。
+- **本车图标大小**通过滑块在 `50%–200%` 之间调节，只改变中央本车图标，不改变对手标记或赛道比例。
 
 #### 雷达效果预览
 
@@ -122,7 +123,8 @@ SimHub\
 #### 自动更新
 
 - 配置工具启动时会自动检查 GitHub 是否发布了新版本。
-- 发现新版本后，可以选择自动下载并安装或暂不更新。
+- 发现新版本后，会按当前界面语言显示本次更新内容，并可选择自动下载并安装或暂不更新。
+- 下载和校验完成后，配置工具会明确提示即将关闭；文件替换完成后会自动重新打开。
 - 自动更新会保留用户当前设置，并替换插件、Overlay、配置工具和更新器。
 - 如果 SimHub 正在运行，更新器会先关闭 SimHub，更新完成后再自动启动。
 - 更新失败时会尝试恢复原文件；断网或检查失败不会影响配置工具正常使用。
@@ -145,7 +147,7 @@ Click the image above to watch the radar demonstration on YouTube.
 
 ### Radar states
 
-The proportional grey vehicle marker in the centre represents your car. The top is the front and the bottom is the rear. The player marker, local track distance, and reference track width use the same scale. The following images show an opponent approaching from behind, moving alongside, and pulling away in front.
+The grey vehicle marker in the centre represents your car. The top is the front and the bottom is the rear. Its size can be adjusted independently in the configurator, while the local track remains a directional reference. The following images show an opponent approaching from behind, moving alongside, and pulling away in front.
 
 #### 1. Approaching from behind
 
@@ -226,10 +228,11 @@ Run **IRacingRadar.Configurator.exe** to manage every radar setting through the 
 - **Overlay opacity** controls how strongly the radar appears over the game.
 - When **catch-time estimate** is enabled and the player is rapidly closing on a front car, `Catch x.xs` appears below the front values. It estimates the time to catch the car from the current distance and closing speed; it does not guarantee a completed overtake.
 
-- **Local track background** reads SimHub's current track-map record and draws the nearby reference line. It hides automatically when no map record is available.
+- **Local track background** reads SimHub's current track-map record and draws the nearby reference as a continuous solid ribbon. It hides automatically when no map record is available.
 - Enable **Always show track and radar** to keep them visible without nearby cars. Disable it to show them only when an approaching car triggers the radar.
 - **Track scale** is adjustable from `2–12 px/m`. Lower values show a longer reference section; the player marker keeps a larger readable size instead of shrinking with the track.
 - **Reference track width** controls the visual ribbon width. It is not a real track-edge width supplied by iRacing.
+- **Player icon size** uses a `50%–200%` slider. It changes only the centre player marker, without resizing opponent markers or the track.
 
 #### Radar preview
 
@@ -248,7 +251,8 @@ The preview uses the same image resources as the SimHub Overlay and updates imme
 #### Automatic updates
 
 - The configurator checks GitHub for new releases at startup.
-- When a newer version is available, choose whether to download and install it automatically or update later.
+- When a newer version is available, its changes are shown in the current interface language before installation or postponement.
+- After download and verification, the configurator clearly warns that it is about to close, then reopens automatically after replacement.
 - Automatic updates preserve the current user settings while replacing the plugin, Overlay, configurator, and updater.
 - If SimHub is running, the updater closes it before replacing files and starts it again afterward.
 - If installation fails, the updater attempts to restore the previous files. Network and update-check failures do not interrupt normal configurator use.

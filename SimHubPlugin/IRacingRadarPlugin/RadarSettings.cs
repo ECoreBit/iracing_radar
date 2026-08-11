@@ -18,6 +18,7 @@ namespace User.IRacingRadarPlugin
         public bool TrackBackgroundAlwaysVisible { get; private set; }
         public double TrackScalePixelsPerMeter { get; private set; }
         public double ReferenceTrackWidthMeters { get; private set; }
+        public double PlayerMarkerScalePercent { get; private set; }
         public double OverlayOpacity { get; private set; }
         public string DisplayMode { get; private set; }
         public double LabelFontSize { get; private set; }
@@ -38,6 +39,7 @@ namespace User.IRacingRadarPlugin
                 TrackBackgroundAlwaysVisible = false,
                 TrackScalePixelsPerMeter = 3.5,
                 ReferenceTrackWidthMeters = 10.5,
+                PlayerMarkerScalePercent = 100.0,
                 OverlayOpacity = 92.0,
                 DisplayMode = "Both",
                 LabelFontSize = 22.0
@@ -117,6 +119,8 @@ namespace User.IRacingRadarPlugin
                     value.ReferenceTrackWidthMeters = Clamp(parsed, 5.0, 20.0);
                 else if (key.Equals("TrackScalePixelsPerMeter", StringComparison.OrdinalIgnoreCase))
                     value.TrackScalePixelsPerMeter = Clamp(parsed, 2.0, 12.0);
+                else if (key.Equals("PlayerMarkerScalePercent", StringComparison.OrdinalIgnoreCase))
+                    value.PlayerMarkerScalePercent = Clamp(parsed, 50.0, 200.0);
             }
 
             value.NearDistanceMeters = Math.Min(value.NearDistanceMeters, value.RadarRangeMeters);

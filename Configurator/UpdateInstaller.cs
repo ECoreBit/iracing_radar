@@ -7,9 +7,26 @@ using System.Threading.Tasks;
 
 namespace IRacingRadarConfigurator
 {
+    internal sealed class PreparedUpdate
+    {
+        private readonly ProcessStartInfo startInfo;
+
+        internal PreparedUpdate(ProcessStartInfo startInfo)
+        {
+            this.startInfo = startInfo;
+        }
+
+        internal void Launch()
+        {
+            Process process = Process.Start(startInfo);
+            if (process == null) throw new InvalidOperationException("The updater could not be started.");
+            process.Dispose();
+        }
+    }
+
     internal static class UpdateInstaller
     {
-        internal static async Task BeginAsync(AvailableRelease release, string settingsPath)
+        internal static async Task<PreparedUpdate> PrepareAsync(AvailableRelease release, string settingsPath)
         {
             if (release == null || string.IsNullOrEmpty(release.DownloadUrl))
                 throw new InvalidOperationException("The release does not contain a downloadable ZIP package.");
@@ -44,9 +61,7 @@ namespace IRacingRadarConfigurator
                 Arguments = JoinArguments(package, targetRoot, Process.GetCurrentProcess().Id,
                     configuratorPath, restartSimHub, simHubPath, release.Tag)
             };
-            Process process = Process.Start(start);
-            if (process == null) throw new InvalidOperationException("The updater could not be started.");
-            process.Dispose();
+            return new PreparedUpdate(start);
         }
 
         internal static void ValidatePackage(string package)

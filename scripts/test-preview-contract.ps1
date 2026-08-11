@@ -21,8 +21,13 @@ $items = @{
     'Left position rail' = '175,34,2,192,#80D51B2A'
     'Right position rail' = '243,34,2,192,#80D51B2A'
 }
-$trackPoints = @($overlay.Screens[0].Items | Where-Object Name -like 'Local track point *')
-if ($trackPoints.Count -ne 48) { throw 'Overlay must contain 48 local-track points.' }
+$trackSegments = @($overlay.Screens[0].Items | Where-Object Name -like 'Local track segment *')
+if ($trackSegments.Count -ne 47) { throw 'Overlay must contain 47 continuous local-track segments.' }
+foreach ($segment in $trackSegments) {
+    if (-not $segment.Bindings.Rotation -or $segment.BorderStyle.RadiusTopLeft -lt 9) {
+        throw "Local-track segment is not a rounded solid connection: $($segment.Name)"
+    }
+}
 if ($preview -notmatch 'DrawReferenceTrack') { throw 'Preview local-track rendering is missing.' }
 
 foreach ($name in $items.Keys) {
@@ -38,6 +43,10 @@ if ($circle.BorderStyle.RadiusTopLeft -ne 129 -or $circle.BorderStyle.BorderTop 
 $player = $overlay.Screens[0].Items | Where-Object Name -eq 'Player marker' | Select-Object -First 1
 if ($player.BorderStyle.RadiusTopLeft -ne 7 -or $player.BorderStyle.BorderColor -ne '#B8E8EDF2') {
     throw 'Player marker style contract changed.'
+}
+if ($player.Bindings.Width.Formula.Expression -notmatch 'PlayerMarkerScalePercent' -or
+    $player.Bindings.Height.Formula.Expression -notmatch 'PlayerMarkerScalePercent') {
+    throw 'Player marker is not bound to the configurable size percentage.'
 }
 $opponent = $overlay.Screens[0].Items | Where-Object Name -eq 'Left opponent marker' | Select-Object -First 1
 if ($opponent.BorderStyle.RadiusTopLeft -ne 7 -or $opponent.BorderStyle.BorderColor -ne '#B8FF7A82') {

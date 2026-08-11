@@ -15,6 +15,7 @@ $csc = @(
     /reference:System.IO.Compression.FileSystem.dll `
     (Join-Path $source 'UpdateChecker.cs') `
     (Join-Path $source 'UpdateInstaller.cs') `
+    (Join-Path $source 'UpdateAvailableDialog.cs') `
     (Join-Path $source 'RadarConfiguratorSettings.cs') `
     (Join-Path $source 'ConfiguratorPreferences.cs') `
     (Join-Path $source 'RadarPreviewMath.cs') `
