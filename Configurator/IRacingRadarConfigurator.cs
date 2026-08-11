@@ -43,6 +43,8 @@ namespace IRacingRadarConfigurator
         private readonly CheckBox trackAlwaysVisible = new CheckBox();
         private readonly NumericUpDown trackScale = new NumericUpDown();
         private readonly NumericUpDown referenceTrackWidth = new NumericUpDown();
+        private readonly TrackBar playerMarkerScale = new TrackBar();
+        private readonly Label playerMarkerScaleValue = new Label();
         private readonly NumericUpDown time = new NumericUpDown();
         private readonly NumericUpDown fade = new NumericUpDown();
         private readonly NumericUpDown fontSize = new NumericUpDown();
@@ -142,6 +144,7 @@ namespace IRacingRadarConfigurator
             ConfigureNumber(referenceTrackWidth, 5, 20, 10.5m, 1, 0.5m, " m");
             fields.Controls.Add(Field("\u53c2\u8003\u8d5b\u9053\u5bbd\u5ea6 / Reference track width",
                 "\u7528\u4e8e\u89c6\u89c9\u6bd4\u4f8b\uff1biRacing \u4e0d\u63d0\u4f9b\u771f\u5b9e\u8d5b\u9053\u8fb9\u754c\u5bbd\u5ea6\u3002", referenceTrackWidth));
+            fields.Controls.Add(PlayerMarkerScaleField());
             ConfigureNumber(fontSize, 10, 36, 22, 0, 1, " px");
             fields.Controls.Add(Field("数值字体大小 / Label size", "前后距离与相对时间文字大小。", fontSize));
             ConfigureNumber(opacity, 0, 100, 92, 0, 1, " %");
@@ -234,6 +237,11 @@ namespace IRacingRadarConfigurator
             trackAlwaysVisible.CheckedChanged += changed;
             trackScale.ValueChanged += changed;
             referenceTrackWidth.ValueChanged += changed;
+            playerMarkerScale.ValueChanged += delegate
+            {
+                playerMarkerScaleValue.Text = playerMarkerScale.Value + "%";
+                if (!loading) UpdatePreview();
+            };
             previewTime.ValueChanged += changed; motion.SelectedIndexChanged += changed;
         }
 
@@ -329,6 +337,9 @@ namespace IRacingRadarConfigurator
                 referenceTrackWidth.Enabled = settings.TrackBackgroundEnabled;
                 trackScale.Value = DecimalValue(trackScale, settings.TrackScalePixelsPerMeter);
                 referenceTrackWidth.Value = DecimalValue(referenceTrackWidth, settings.ReferenceTrackWidthMeters);
+                playerMarkerScale.Value = Math.Max(playerMarkerScale.Minimum,
+                    Math.Min(playerMarkerScale.Maximum, (int)Math.Round(settings.PlayerMarkerScalePercent)));
+                playerMarkerScaleValue.Text = playerMarkerScale.Value + "%";
                 fontSize.Value = DecimalValue(fontSize, settings.LabelFontSize);
                 opacity.Value = DecimalValue(opacity, settings.OverlayOpacity);
                 if (scenario.SelectedIndex < 0) scenario.SelectedIndex = 0;
@@ -358,6 +369,7 @@ namespace IRacingRadarConfigurator
                 TrackBackgroundAlwaysVisible = trackAlwaysVisible.Checked,
                 TrackScalePixelsPerMeter = (double)trackScale.Value,
                 ReferenceTrackWidthMeters = (double)referenceTrackWidth.Value,
+                PlayerMarkerScalePercent = playerMarkerScale.Value,
                 OverlayOpacity = (double)opacity.Value
             };
         }
@@ -403,24 +415,54 @@ namespace IRacingRadarConfigurator
 
         private static Control TitleBlock(string title, string subtitle)
         {
-            Panel panel = new Panel { Width = 397, Height = 48, Margin = new Padding(0, 0, 0, 4) };
+            Panel panel = new Panel { Width = 397, Height = 44, Margin = new Padding(0, 0, 0, 2) };
             panel.Controls.Add(new Label { Text = title, Font = new Font("Segoe UI", 16, FontStyle.Bold), ForeColor = Color.FromArgb(245, 248, 252), AutoSize = true, Location = new Point(0, 0) });
-            panel.Controls.Add(new Label { Text = subtitle, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(69, 208, 139), AutoSize = true, Location = new Point(2, 31) });
+            panel.Controls.Add(new Label { Text = subtitle, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(69, 208, 139), AutoSize = true, Location = new Point(2, 29) });
             return panel;
         }
 
         private static Label Section(string text)
         {
-            return new Label { Text = text, Width = 397, Height = 24, Padding = new Padding(0, 6, 0, 0), Margin = new Padding(0, 3, 0, 3), ForeColor = Color.FromArgb(115, 202, 158), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            return new Label { Text = text, Width = 397, Height = 21, Padding = new Padding(0, 4, 0, 0), Margin = new Padding(0, 2, 0, 2), ForeColor = Color.FromArgb(115, 202, 158), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
         }
 
         private static Panel Field(string title, string description, Control editor)
         {
-            Panel panel = new Panel { Width = 397, Height = 52, Margin = new Padding(0, 0, 0, 2) };
-            panel.Controls.Add(new Label { Text = title, Location = new Point(0, 2), Size = new Size(238, 20), ForeColor = Color.FromArgb(230, 236, 244) });
-            panel.Controls.Add(new Label { Text = description, Location = new Point(0, 24), Size = new Size(242, 24), ForeColor = Color.FromArgb(136, 149, 168), Font = new Font("Segoe UI", 8.25f) });
-            editor.Location = new Point(247, 6); editor.Width = 145;
+            Panel panel = new Panel { Width = 397, Height = 49, Margin = new Padding(0, 0, 0, 1) };
+            panel.Controls.Add(new Label { Text = title, Location = new Point(0, 1), Size = new Size(238, 20), ForeColor = Color.FromArgb(230, 236, 244) });
+            panel.Controls.Add(new Label { Text = description, Location = new Point(0, 21), Size = new Size(242, 24), ForeColor = Color.FromArgb(136, 149, 168), Font = new Font("Segoe UI", 8.25f) });
+            editor.Location = new Point(247, 5); editor.Width = 145;
             panel.Controls.Add(editor);
+            return panel;
+        }
+
+        private Panel PlayerMarkerScaleField()
+        {
+            Panel panel = new Panel { Width = 397, Height = 44, Margin = new Padding(0, 0, 0, 2) };
+            Label title = new Label
+            {
+                Text = "本车图标大小 / Player icon size",
+                Location = new Point(0, 10),
+                Size = new Size(215, 22),
+                ForeColor = Color.FromArgb(230, 236, 244)
+            };
+            playerMarkerScale.Minimum = 50;
+            playerMarkerScale.Maximum = 200;
+            playerMarkerScale.Value = 100;
+            playerMarkerScale.TickFrequency = 25;
+            playerMarkerScale.TickStyle = TickStyle.None;
+            playerMarkerScale.AutoSize = false;
+            playerMarkerScale.Location = new Point(218, 5);
+            playerMarkerScale.Size = new Size(130, 32);
+            playerMarkerScale.BackColor = Color.FromArgb(24, 29, 38);
+            playerMarkerScaleValue.Text = "100%";
+            playerMarkerScaleValue.Location = new Point(348, 10);
+            playerMarkerScaleValue.Size = new Size(48, 22);
+            playerMarkerScaleValue.TextAlign = ContentAlignment.MiddleRight;
+            playerMarkerScaleValue.ForeColor = Color.FromArgb(230, 236, 244);
+            panel.Controls.Add(title);
+            panel.Controls.Add(playerMarkerScale);
+            panel.Controls.Add(playerMarkerScaleValue);
             return panel;
         }
 
@@ -461,7 +503,7 @@ namespace IRacingRadarConfigurator
 
         private static void ConfigureCheck(CheckBox check, string text)
         {
-            check.Text = text; check.Width = 397; check.Height = 27; check.Margin = new Padding(0, 0, 0, 2);
+            check.Text = text; check.Width = 397; check.Height = 26; check.Margin = new Padding(0, 0, 0, 1);
             check.ForeColor = Color.FromArgb(230, 236, 244); check.FlatStyle = FlatStyle.Flat;
         }
 

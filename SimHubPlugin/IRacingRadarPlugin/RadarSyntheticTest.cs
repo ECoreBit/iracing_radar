@@ -55,6 +55,7 @@ internal static class RadarSyntheticTest
             !(bool)settingsType.GetProperty("TrackBackgroundAlwaysVisible").GetValue(settings, null) &&
             Math.Abs((double)settingsType.GetProperty("TrackScalePixelsPerMeter").GetValue(settings, null) - 3.5) < 0.001 &&
             Math.Abs((double)settingsType.GetProperty("ReferenceTrackWidthMeters").GetValue(settings, null) - 10.5) < 0.001 &&
+            Math.Abs((double)settingsType.GetProperty("PlayerMarkerScalePercent").GetValue(settings, null) - 100.0) < 0.001 &&
             !(bool)parseBoolean.Invoke(null, new object[] { "false", true }) &&
             !(bool)parseBoolean.Invoke(null, new object[] { "off", true }) &&
             (bool)parseBoolean.Invoke(null, new object[] { "yes", false }) &&

@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -12,6 +13,7 @@ namespace IRacingRadarConfigurator
         public string Tag { get; set; }
         public string Url { get; set; }
         public string DownloadUrl { get; set; }
+        public string ReleaseNotes { get; set; }
     }
 
     internal static class UpdateChecker
@@ -33,6 +35,7 @@ namespace IRacingRadarConfigurator
                 ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072;
                 using (TimeoutWebClient client = new TimeoutWebClient())
                 {
+                    client.Encoding = Encoding.UTF8;
                     client.Headers[HttpRequestHeader.UserAgent] = "iRacing-Radar-Configurator";
                     client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
                     string json = await client.DownloadStringTaskAsync(new Uri(LatestReleaseApi));
@@ -55,6 +58,7 @@ namespace IRacingRadarConfigurator
             if (!TryParseVersionTag(tagMatch.Groups[1].Value, out version)) return null;
 
             Match urlMatch = Regex.Match(json, "\\\"html_url\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+            string releaseNotes = ReadJsonString(json, "body");
             MatchCollection downloadMatches = Regex.Matches(json,
                 "\\\"browser_download_url\\\"\\s*:\\s*\\\"([^\\\"]+\\.zip)\\\"", RegexOptions.IgnoreCase);
             string downloadUrl = null;
@@ -72,8 +76,56 @@ namespace IRacingRadarConfigurator
                 Version = version,
                 Tag = tagMatch.Groups[1].Value,
                 Url = urlMatch.Success ? urlMatch.Groups[1].Value.Replace("\\/", "/") : ReleasesPage,
-                DownloadUrl = downloadUrl
+                DownloadUrl = downloadUrl,
+                ReleaseNotes = releaseNotes
             };
+        }
+
+        internal static string ReadJsonString(string json, string propertyName)
+        {
+            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(propertyName)) return string.Empty;
+            Match match = Regex.Match(json,
+                "\\\"" + Regex.Escape(propertyName) + "\\\"\\s*:\\s*(?:null|\\\"((?:\\\\.|[^\\\"\\\\])*)\\\")",
+                RegexOptions.IgnoreCase);
+            return match.Success && match.Groups[1].Success
+                ? DecodeJsonString(match.Groups[1].Value) : string.Empty;
+        }
+
+        private static string DecodeJsonString(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            System.Text.StringBuilder result = new System.Text.StringBuilder(value.Length);
+            for (int i = 0; i < value.Length; i++)
+            {
+                char current = value[i];
+                if (current != '\\' || i + 1 >= value.Length)
+                {
+                    result.Append(current);
+                    continue;
+                }
+
+                char escaped = value[++i];
+                if (escaped == '\"' || escaped == '\\' || escaped == '/') result.Append(escaped);
+                else if (escaped == 'b') result.Append('\b');
+                else if (escaped == 'f') result.Append('\f');
+                else if (escaped == 'n') result.Append('\n');
+                else if (escaped == 'r') result.Append('\r');
+                else if (escaped == 't') result.Append('\t');
+                else if (escaped == 'u' && i + 4 < value.Length)
+                {
+                    int code;
+                    if (int.TryParse(value.Substring(i + 1, 4),
+                        System.Globalization.NumberStyles.HexNumber,
+                        System.Globalization.CultureInfo.InvariantCulture, out code))
+                    {
+                        result.Append((char)code);
+                        i += 4;
+                    }
+                    else result.Append(escaped);
+                }
+                else result.Append(escaped);
+            }
+            return result.ToString();
         }
 
         internal static bool IsTrustedDownloadUrl(string value)

@@ -211,8 +211,10 @@ namespace IRacingRadarConfigurator
 
         private void DrawPlayer(Graphics g, double radarOpacity)
         {
-            float playerWidth = 12f;
-            float playerLength = 30f;
+            float markerScale = (float)Math.Max(0.5, Math.Min(2.0,
+                Settings.PlayerMarkerScalePercent / 100.0));
+            float playerWidth = 12f * markerScale;
+            float playerLength = 30f * markerScale;
             DrawRoundedRectangle(g, new RectangleF(210 - playerWidth / 2f, 130 - playerLength / 2f,
                 playerWidth, playerLength), "#FF727E8A",
                 100 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,

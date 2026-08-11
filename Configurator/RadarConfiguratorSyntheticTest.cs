@@ -11,10 +11,11 @@ namespace IRacingRadarConfigurator
             if (!UpdateChecker.TryParseVersionTag("v1.4.2", out parsedVersion) || parsedVersion != new Version(1, 4, 2))
                 throw new InvalidOperationException("GitHub release version parsing failed.");
             AvailableRelease parsedRelease = UpdateChecker.ParseLatestRelease(
-                "{\"tag_name\":\"v1.4.0\",\"html_url\":\"https://github.com/ECoreBit/iracing_radar/releases/tag/v1.4.0\",\"assets\":[{\"browser_download_url\":\"https://github.com/ECoreBit/iracing_radar/releases/download/v1.4.0/iracing-radar-v1.4.0.zip\"}]}");
+                "{\"tag_name\":\"v1.4.0\",\"html_url\":\"https://github.com/ECoreBit/iracing_radar/releases/tag/v1.4.0\",\"body\":\"New track background\\nFix: \\u8fdc\\u8ddd\\u79bb\\u63d0\\u793a\",\"assets\":[{\"browser_download_url\":\"https://github.com/ECoreBit/iracing_radar/releases/download/v1.4.0/iracing-radar-v1.4.0.zip\"}]}");
             if (parsedRelease == null || parsedRelease.Version != new Version(1, 4, 0) ||
                 !parsedRelease.Url.EndsWith("/v1.4.0", StringComparison.Ordinal) ||
-                !parsedRelease.DownloadUrl.EndsWith("iracing-radar-v1.4.0.zip", StringComparison.Ordinal))
+                !parsedRelease.DownloadUrl.EndsWith("iracing-radar-v1.4.0.zip", StringComparison.Ordinal) ||
+                parsedRelease.ReleaseNotes != "New track background\nFix: 远距离提示")
                 throw new InvalidOperationException("GitHub release response parsing failed.");
             if (UpdateChecker.IsTrustedDownloadUrl("https://example.com/fake.zip"))
                 throw new InvalidOperationException("Untrusted update URL was accepted.");
@@ -25,11 +26,12 @@ namespace IRacingRadarConfigurator
                 defaults.HideInQualifying &&
                 defaults.TrackBackgroundEnabled && !defaults.TrackBackgroundAlwaysVisible &&
                 defaults.TrackScalePixelsPerMeter == 3.5 && defaults.ReferenceTrackWidthMeters == 10.5 &&
+                defaults.PlayerMarkerScalePercent == 100 &&
                 defaults.RadarFadeBandPercent == 15 && defaults.LabelFontSize == 22 && defaults.OverlayOpacity == 92;
 
             string source = "# keep this comment\nDisplayMode=Time\nRadarRangeMeters=500\n" +
                 "NearDistanceMeters=90\nFrontGreenArcEnabled=false\nRearGreenArcEnabled=yes\nCatchEstimateEnabled=false\nHideInQualifying=false\n" +
-                "TrackBackgroundEnabled=false\nTrackBackgroundAlwaysVisible=true\nTrackScalePixelsPerMeter=30\nReferenceTrackWidthMeters=30\n" +
+                "TrackBackgroundEnabled=false\nTrackBackgroundAlwaysVisible=true\nTrackScalePixelsPerMeter=30\nReferenceTrackWidthMeters=30\nPlayerMarkerScalePercent=300\n" +
                 "TimeAlertSeconds=0.4\nRadarFadeBandPercent=80\nLabelFontSize=8\nOverlayOpacity=110\n";
             RadarConfiguratorSettings parsed = RadarConfiguratorSettings.Parse(source);
             bool parsePass = parsed.DisplayMode == "Time" && parsed.RadarRangeMeters == 200 &&
@@ -37,6 +39,7 @@ namespace IRacingRadarConfigurator
                 !parsed.HideInQualifying &&
                 !parsed.TrackBackgroundEnabled && parsed.TrackBackgroundAlwaysVisible &&
                 parsed.TrackScalePixelsPerMeter == 12 && parsed.ReferenceTrackWidthMeters == 20 &&
+                parsed.PlayerMarkerScalePercent == 200 &&
                 parsed.RadarFadeBandPercent == 50 && parsed.LabelFontSize == 10 && parsed.OverlayOpacity == 100;
 
             parsed.RadarRangeMeters = 70;
@@ -55,6 +58,7 @@ namespace IRacingRadarConfigurator
                 RadarConfiguratorSettings saved = RadarConfiguratorSettings.Load(path);
                 savePass = saved.RadarRangeMeters == 70 && saved.NearDistanceMeters == 20 &&
                     saved.ReferenceTrackWidthMeters == 20 && saved.TrackScalePixelsPerMeter == 12 &&
+                    saved.PlayerMarkerScalePercent == 200 &&
                     saved.TrackBackgroundAlwaysVisible && !saved.TrackBackgroundEnabled && !saved.HideInQualifying &&
                     File.ReadAllText(path).Contains("# keep this comment");
                 string preferencesPath = path + ".ui";

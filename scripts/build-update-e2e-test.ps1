@@ -1,7 +1,15 @@
+param([string]$OutputDirectory)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $source = Join-Path $root 'Configurator'
-$outputDir = Join-Path $source 'bin\Release'
+$outputDir = if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    Join-Path $root 'release-build\update-e2e-test'
+} elseif ([IO.Path]::IsPathRooted($OutputDirectory)) {
+    [IO.Path]::GetFullPath($OutputDirectory)
+} else {
+    [IO.Path]::GetFullPath((Join-Path $root $OutputDirectory))
+}
 $output = Join-Path $outputDir 'IRacingRadar.Configurator.exe'
 $csc = @(
     "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
@@ -9,6 +17,7 @@ $csc = @(
 ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $csc) { throw 'The .NET Framework C# compiler was not found.' }
 
+& (Join-Path $PSScriptRoot 'build-updater.ps1')
 New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 $arguments = @(
     '/nologo', '/target:winexe', '/optimize+',
@@ -21,7 +30,7 @@ $arguments = @(
     '/reference:System.IO.Compression.FileSystem.dll',
     "/win32manifest:$(Join-Path $source 'IRacingRadarConfigurator.manifest')",
     "/win32icon:$(Join-Path $source 'IRacingRadar.ico')",
-    (Join-Path $source 'AssemblyInfo.cs'),
+    (Join-Path $source 'AssemblyInfo.UpdateTest.cs'),
     (Join-Path $source 'UpdateChecker.cs'),
     (Join-Path $source 'UpdateInstaller.cs'),
     (Join-Path $source 'UpdateAvailableDialog.cs'),
@@ -37,6 +46,9 @@ $arguments = @(
     (Join-Path $source 'ConfiguratorFeatures.cs')
 )
 & $csc @arguments
-if ($LASTEXITCODE -ne 0) { throw "Configurator compilation failed with exit code $LASTEXITCODE." }
-& (Join-Path $PSScriptRoot 'build-updater.ps1')
-Write-Host "Built: $output"
+if ($LASTEXITCODE -ne 0) { throw "Update E2E test configurator compilation failed with exit code $LASTEXITCODE." }
+
+Copy-Item -LiteralPath (Join-Path $source 'bin\Release\IRacingRadar.Updater.exe') -Destination $outputDir -Force
+Copy-Item -LiteralPath (Join-Path $root 'IRacingRadar.settings.ini') -Destination $outputDir -Force
+Write-Host "Built isolated update test: $outputDir"
+Write-Host 'Close SimHub before running this test so the formal installation is not interrupted.'

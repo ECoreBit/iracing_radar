@@ -143,6 +143,8 @@ namespace User.IRacingRadarPlugin
             Add("TrackRoadWidth", trackFrame.RoadWidthPixels, "Reference track width in overlay pixels.");
             Add("TrackPlayerWidth", trackFrame.PlayerWidthPixels, "Proportional player width in overlay pixels.");
             Add("TrackPlayerLength", trackFrame.PlayerLengthPixels, "Proportional player length in overlay pixels.");
+            Add("PlayerMarkerScalePercent", settings.PlayerMarkerScalePercent,
+                "Configured player-marker scale percentage.");
             Add("TrackMapSource", "", "Loaded SimHub map-record filename.");
             Add("TrackProgressPercent", 0.0, "Current lap progress used by the local track background.");
             for (int i = 0; i < TrackMapGeometry.PointCount; i++)
@@ -681,6 +683,7 @@ namespace User.IRacingRadarPlugin
             Set("TrackRoadWidth", trackFrame.RoadWidthPixels);
             Set("TrackPlayerWidth", trackFrame.PlayerWidthPixels);
             Set("TrackPlayerLength", trackFrame.PlayerLengthPixels);
+            Set("PlayerMarkerScalePercent", settings.PlayerMarkerScalePercent);
             Set("TrackMapSource", trackMap.SourceName ?? string.Empty);
             Set("TrackProgressPercent", trackFrame.ProgressPercent);
             for (int i = 0; i < TrackMapGeometry.PointCount; i++)

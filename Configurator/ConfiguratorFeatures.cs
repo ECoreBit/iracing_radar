@@ -38,11 +38,10 @@ namespace IRacingRadarConfigurator
             if (release == null || IsDisposed) return;
 
             string title = english ? "iRacing Radar update" : "iRacing Radar 发现新版本";
-            string message = english
-                ? "A new version " + release.Tag + " is available.\n\nDownload and install it now?"
-                : "发现新版本 " + release.Tag + "。\n\n是否现在自动下载并安装？";
-            if (MessageBox.Show(this, message, title, MessageBoxButtons.YesNo,
-                MessageBoxIcon.Information, MessageBoxDefaultButton.Button1) != DialogResult.Yes) return;
+            using (UpdateAvailableDialog dialog = new UpdateAvailableDialog(release, english, dayMode))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            }
 
             if (string.IsNullOrEmpty(release.DownloadUrl))
             {
@@ -55,9 +54,14 @@ namespace IRacingRadarConfigurator
                 Enabled = false;
                 UseWaitCursor = true;
                 SetStatus("正在下载并验证新版本……", "Downloading and verifying the update...", false);
-                await UpdateInstaller.BeginAsync(release, settingsPath);
-                SetStatus("下载完成，正在退出并替换文件……",
-                    "Download complete. Closing to replace files...", false);
+                PreparedUpdate prepared = await UpdateInstaller.PrepareAsync(release, settingsPath);
+                SetStatus("下载和校验完成。", "Download and verification completed.", false);
+                MessageBox.Show(this,
+                    english
+                        ? "The update has been downloaded and verified.\n\nThe configurator will now close while the files are replaced. It will reopen automatically when the update is complete."
+                        : "新版本已经下载并校验完成。\n\n配置工具现在将关闭并替换文件，更新完成后会自动重新打开。",
+                    title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                prepared.Launch();
                 BeginInvoke(new Action(Application.Exit));
             }
             catch (Exception ex)

@@ -20,6 +20,7 @@ namespace IRacingRadarConfigurator
         public bool TrackBackgroundAlwaysVisible { get; set; }
         public double TrackScalePixelsPerMeter { get; set; }
         public double ReferenceTrackWidthMeters { get; set; }
+        public double PlayerMarkerScalePercent { get; set; }
         public double TimeAlertSeconds { get; set; }
         public double RadarFadeBandPercent { get; set; }
         public double LabelFontSize { get; set; }
@@ -40,6 +41,7 @@ namespace IRacingRadarConfigurator
                 TrackBackgroundAlwaysVisible = false,
                 TrackScalePixelsPerMeter = 3.5,
                 ReferenceTrackWidthMeters = 10.5,
+                PlayerMarkerScalePercent = 100.0,
                 TimeAlertSeconds = 0.7,
                 RadarFadeBandPercent = 15.0,
                 LabelFontSize = 22.0,
@@ -91,6 +93,7 @@ namespace IRacingRadarConfigurator
                     else if (key.Equals("OverlayOpacity", StringComparison.OrdinalIgnoreCase)) value.OverlayOpacity = Clamp(number, 0, 100);
                     else if (key.Equals("ReferenceTrackWidthMeters", StringComparison.OrdinalIgnoreCase)) value.ReferenceTrackWidthMeters = Clamp(number, 5, 20);
                     else if (key.Equals("TrackScalePixelsPerMeter", StringComparison.OrdinalIgnoreCase)) value.TrackScalePixelsPerMeter = Clamp(number, 2, 12);
+                    else if (key.Equals("PlayerMarkerScalePercent", StringComparison.OrdinalIgnoreCase)) value.PlayerMarkerScalePercent = Clamp(number, 50, 200);
                 }
             }
             value.NearDistanceMeters = Math.Min(value.NearDistanceMeters, value.RadarRangeMeters);
@@ -108,6 +111,7 @@ namespace IRacingRadarConfigurator
             OverlayOpacity = Clamp(OverlayOpacity, 0, 100);
             ReferenceTrackWidthMeters = Clamp(ReferenceTrackWidthMeters, 5, 20);
             TrackScalePixelsPerMeter = Clamp(TrackScalePixelsPerMeter, 2, 12);
+            PlayerMarkerScalePercent = Clamp(PlayerMarkerScalePercent, 50, 200);
         }
 
         public string UpdateDocument(string original)
@@ -151,6 +155,7 @@ namespace IRacingRadarConfigurator
             yield return Pair("TrackBackgroundAlwaysVisible", TrackBackgroundAlwaysVisible ? "true" : "false");
             yield return Pair("TrackScalePixelsPerMeter", Number(TrackScalePixelsPerMeter));
             yield return Pair("ReferenceTrackWidthMeters", Number(ReferenceTrackWidthMeters));
+            yield return Pair("PlayerMarkerScalePercent", Number(PlayerMarkerScalePercent));
             yield return Pair("RadarFadeBandPercent", Number(RadarFadeBandPercent));
             yield return Pair("LabelFontSize", Number(LabelFontSize));
             yield return Pair("OverlayOpacity", Number(OverlayOpacity));

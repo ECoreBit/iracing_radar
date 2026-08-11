@@ -86,12 +86,17 @@ namespace IRacingRadarConfigurator
                             throw new InvalidOperationException("Settings content is clipped after removing the scrollbar.");
                     }
                 }
-
                 Invoke(form, "SetTheme", true);
                 if (Contrast(menu.BackColor, menu.ForeColor) < 4.5)
                     throw new InvalidOperationException("Day menu text contrast is too low.");
                 OverlayRadarPreviewControl preview = (OverlayRadarPreviewControl)GetField(form, "preview");
                 if (!preview.DayMode) throw new InvalidOperationException("Preview did not enter day mode.");
+                TrackBar playerScale = (TrackBar)GetField(form, "playerMarkerScale");
+                if (playerScale.Minimum != 50 || playerScale.Maximum != 200 || playerScale.Value != 100)
+                    throw new InvalidOperationException("Player-marker scale slider has invalid bounds or default value.");
+                playerScale.Value = 150;
+                if (Math.Abs(preview.Settings.PlayerMarkerScalePercent - 150) > 0.001)
+                    throw new InvalidOperationException("Player-marker scale slider did not update the preview.");
                 int roundedCards = 0;
                 foreach (Control control in AllControls(form))
                 {
@@ -122,6 +127,29 @@ namespace IRacingRadarConfigurator
                     dialog.CreateControl();
                     if (!HasButton(dialog, "Restart now") || !HasButton(dialog, "Restart later") || !HasButton(dialog, "Cancel"))
                         throw new InvalidOperationException("English restart prompt is incomplete.");
+                }
+                AvailableRelease update = new AvailableRelease
+                {
+                    Tag = "v9.9.9",
+                    ReleaseNotes = "## 中文\n\n### 修复\n- 中文修复内容\n\n### 安装\n下载文件\nSHA-256: 1234\n\n---\n\n## English\n\n### Fixed\n- English fix\n\n### Installation\nDownload file\nSHA-256: 1234"
+                };
+                using (UpdateAvailableDialog dialog = new UpdateAvailableDialog(update, false, true))
+                {
+                    dialog.CreateControl();
+                    if (!HasButton(dialog, "下载并安装") || !HasButton(dialog, "稍后") ||
+                        HasTextBox(dialog) || !HasLabelContaining(dialog, "中文修复内容") ||
+                        HasLabelContaining(dialog, "English fix") || HasLabelContaining(dialog, "下载文件") ||
+                        HasLabelContaining(dialog, "SHA-256"))
+                        throw new InvalidOperationException("Chinese update dialog or release notes are incomplete.");
+                }
+                using (UpdateAvailableDialog dialog = new UpdateAvailableDialog(update, true, false))
+                {
+                    dialog.CreateControl();
+                    if (!HasButton(dialog, "Download and install") || !HasButton(dialog, "Later") ||
+                        HasTextBox(dialog) || !HasLabelContaining(dialog, "English fix") ||
+                        HasLabelContaining(dialog, "中文修复内容") || HasLabelContaining(dialog, "Download file") ||
+                        HasLabelContaining(dialog, "SHA-256"))
+                        throw new InvalidOperationException("English update dialog or release notes are incomplete.");
                 }
                 string simHub = SimHubRestartService.FindExecutable(
                     System.IO.Path.Combine(root, "IRacingRadar.settings.ini"));
@@ -182,6 +210,23 @@ namespace IRacingRadarConfigurator
             }
             return false;
         }
+        private static bool HasTextBox(Control root)
+        {
+            foreach (Control control in AllControls(root))
+            {
+                if (control is TextBox) return true;
+            }
+            return false;
+        }
+        private static bool HasLabelContaining(Control root, string text)
+        {
+            foreach (Control control in AllControls(root))
+            {
+                Label label = control as Label;
+                if (label != null && label.Text.IndexOf(text, StringComparison.Ordinal) >= 0) return true;
+            }
+            return false;
+        }
         private static object GetField(object target, string name)
         {
             return target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -196,10 +241,17 @@ namespace IRacingRadarConfigurator
 
         private static System.Collections.Generic.IEnumerable<Control> AllControls(Control root)
         {
+            return AllControls(root, new System.Collections.Generic.HashSet<Control>());
+        }
+
+        private static System.Collections.Generic.IEnumerable<Control> AllControls(Control root,
+            System.Collections.Generic.HashSet<Control> visited)
+        {
             foreach (Control child in root.Controls)
             {
+                if (!visited.Add(child)) continue;
                 yield return child;
-                foreach (Control descendant in AllControls(child)) yield return descendant;
+                foreach (Control descendant in AllControls(child, visited)) yield return descendant;
             }
         }
 
