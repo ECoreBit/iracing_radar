@@ -28,10 +28,7 @@ if ($overlay.BaseWidth -ne 420 -or $overlay.BaseHeight -ne 260) {
     throw 'Configurator preview expects the SimHub overlay to remain 420 x 260.'
 }
 $requiredItems = @{
-    'Radar circle outline' = '81,1,258,258,#52101620'
-    'Player marker' = '201,109,18,42,#FF727E8A'
-    'Left opponent marker' = '167,109,18,42,#F0E31B2C'
-    'Right opponent marker' = '235,109,18,42,#F0E31B2C'
+    'Radar circle outline' = '84,4,252,252,#52101620'
     'Left position rail' = '175,34,2,192,#80D51B2A'
     'Right position rail' = '243,34,2,192,#80D51B2A'
 }

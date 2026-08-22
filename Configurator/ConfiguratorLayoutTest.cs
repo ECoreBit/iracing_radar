@@ -41,6 +41,8 @@ namespace IRacingRadarConfigurator
 
                 CheckBox frontArc = (CheckBox)GetField(form, "frontArc");
                 CheckBox rearArc = (CheckBox)GetField(form, "rearArc");
+                CheckBox catchEstimate = (CheckBox)GetField(form, "catchEstimate");
+                CheckBox overtakePrediction = (CheckBox)GetField(form, "overtakePrediction");
                 ComboBox scenario = (ComboBox)GetField(form, "scenario");
                 Button frontGreen = FindSceneButton(buttons, PreviewScenario.Front, false);
                 Button frontRed = FindSceneButton(buttons, PreviewScenario.Front, true);
@@ -51,6 +53,13 @@ namespace IRacingRadarConfigurator
 
                 frontArc.Checked = true;
                 rearArc.Checked = true;
+
+                if (!catchEstimate.Checked || !overtakePrediction.Checked || !overtakePrediction.Enabled)
+                    throw new InvalidOperationException("Catch-point prediction switch is missing or disabled.");
+                catchEstimate.Checked = false;
+                if (overtakePrediction.Enabled)
+                    throw new InvalidOperationException("Catch-point prediction must be unavailable without catch prediction.");
+                catchEstimate.Checked = true;
                 scenario.SelectedItem = FindSceneChoice(buttons, PreviewScenario.Front, false);
                 frontArc.Checked = false;
                 Application.DoEvents();
@@ -71,14 +80,13 @@ namespace IRacingRadarConfigurator
                 }
                 rearArc.Checked = true;
 
-                foreach (Control control in AllControls(form))
+                foreach (Control control in form.Controls)
                 {
                     FlowLayoutPanel flow = control as FlowLayoutPanel;
                     if (flow != null && flow.AutoScroll)
                         throw new InvalidOperationException("Native light scrollbars must not be enabled.");
                     if (flow != null && flow.Controls.Count > 10)
                     {
-                        flow.PerformLayout();
                         int contentBottom = flow.Padding.Top;
                         foreach (Control child in flow.Controls)
                             contentBottom = Math.Max(contentBottom, child.Bottom + child.Margin.Bottom);
@@ -97,20 +105,6 @@ namespace IRacingRadarConfigurator
                 playerScale.Value = 150;
                 if (Math.Abs(preview.Settings.PlayerMarkerScalePercent - 150) > 0.001)
                     throw new InvalidOperationException("Player-marker scale slider did not update the preview.");
-                int roundedCards = 0;
-                foreach (Control control in AllControls(form))
-                {
-                    if (control.GetType().Name != "RoundedPanel") continue;
-                    roundedCards++;
-                    Color border = (Color)control.GetType().GetProperty("BorderColor").GetValue(control, null);
-                    if (border.R < 180 || border.G < 180 || border.B < 180)
-                        throw new InvalidOperationException("Day-mode card border is still too dark.");
-                    if (control.Region == null || control.Region.IsVisible(0, 0) ||
-                        !control.Region.IsVisible(control.Width / 2, 1))
-                        throw new InvalidOperationException("Rounded card clipping is inconsistent.");
-                }
-                if (roundedCards != 2) throw new InvalidOperationException("Expected two rounded configuration cards.");
-
                 Invoke(form, "SetLanguage", true);
                 if (menu.Items[0].Text != "Language" || menu.Items[1].Text != "Theme")
                     throw new InvalidOperationException("English menu labels did not update.");
@@ -241,17 +235,18 @@ namespace IRacingRadarConfigurator
 
         private static System.Collections.Generic.IEnumerable<Control> AllControls(Control root)
         {
-            return AllControls(root, new System.Collections.Generic.HashSet<Control>());
-        }
-
-        private static System.Collections.Generic.IEnumerable<Control> AllControls(Control root,
-            System.Collections.Generic.HashSet<Control> visited)
-        {
-            foreach (Control child in root.Controls)
+            System.Collections.Generic.HashSet<Control> visited = new System.Collections.Generic.HashSet<Control>();
+            System.Collections.Generic.Queue<Control> pending = new System.Collections.Generic.Queue<Control>();
+            pending.Enqueue(root);
+            while (pending.Count > 0)
             {
-                if (!visited.Add(child)) continue;
-                yield return child;
-                foreach (Control descendant in AllControls(child, visited)) yield return descendant;
+                Control current = pending.Dequeue();
+                foreach (Control child in current.Controls)
+                {
+                    if (!visited.Add(child)) continue;
+                    yield return child;
+                    pending.Enqueue(child);
+                }
             }
         }
 

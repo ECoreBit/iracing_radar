@@ -11,10 +11,13 @@ namespace IRacingRadarConfigurator
     {
         public string DisplayMode { get; set; }
         public double RadarRangeMeters { get; set; }
+        public bool DynamicRadarRangeEnabled { get; set; }
+        public double DynamicRadarRangeMinimumMeters { get; set; }
         public double NearDistanceMeters { get; set; }
         public bool FrontGreenArcEnabled { get; set; }
         public bool RearGreenArcEnabled { get; set; }
         public bool CatchEstimateEnabled { get; set; }
+        public bool OvertakePredictionEnabled { get; set; }
         public bool HideInQualifying { get; set; }
         public bool TrackBackgroundEnabled { get; set; }
         public bool TrackBackgroundAlwaysVisible { get; set; }
@@ -32,10 +35,13 @@ namespace IRacingRadarConfigurator
             {
                 DisplayMode = "Both",
                 RadarRangeMeters = 70.0,
+                DynamicRadarRangeEnabled = false,
+                DynamicRadarRangeMinimumMeters = 35.0,
                 NearDistanceMeters = 20.0,
                 FrontGreenArcEnabled = true,
                 RearGreenArcEnabled = true,
                 CatchEstimateEnabled = true,
+                OvertakePredictionEnabled = true,
                 HideInQualifying = true,
                 TrackBackgroundEnabled = true,
                 TrackBackgroundAlwaysVisible = false,
@@ -72,10 +78,14 @@ namespace IRacingRadarConfigurator
                     value.DisplayMode = NormalizeMode(raw);
                 else if (key.Equals("FrontGreenArcEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
                     value.FrontGreenArcEnabled = boolean;
+                else if (key.Equals("DynamicRadarRangeEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
+                    value.DynamicRadarRangeEnabled = boolean;
                 else if (key.Equals("RearGreenArcEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
                     value.RearGreenArcEnabled = boolean;
                 else if (key.Equals("CatchEstimateEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
                     value.CatchEstimateEnabled = boolean;
+                else if (key.Equals("OvertakePredictionEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
+                    value.OvertakePredictionEnabled = boolean;
                 else if (key.Equals("HideInQualifying", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
                     value.HideInQualifying = boolean;
                 else if (key.Equals("TrackBackgroundEnabled", StringComparison.OrdinalIgnoreCase) && TryBoolean(raw, out boolean))
@@ -86,6 +96,7 @@ namespace IRacingRadarConfigurator
                 else if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out number))
                 {
                     if (key.Equals("RadarRangeMeters", StringComparison.OrdinalIgnoreCase)) value.RadarRangeMeters = Clamp(number, 5, 200);
+                    else if (key.Equals("DynamicRadarRangeMinimumMeters", StringComparison.OrdinalIgnoreCase)) value.DynamicRadarRangeMinimumMeters = Clamp(number, 5, 200);
                     else if (key.Equals("NearDistanceMeters", StringComparison.OrdinalIgnoreCase)) value.NearDistanceMeters = Clamp(number, 1, 100);
                     else if (key.Equals("TimeAlertSeconds", StringComparison.OrdinalIgnoreCase)) value.TimeAlertSeconds = Clamp(number, 0.1, 30);
                     else if (key.Equals("RadarFadeBandPercent", StringComparison.OrdinalIgnoreCase)) value.RadarFadeBandPercent = Clamp(number, 1, 50);
@@ -96,6 +107,7 @@ namespace IRacingRadarConfigurator
                     else if (key.Equals("PlayerMarkerScalePercent", StringComparison.OrdinalIgnoreCase)) value.PlayerMarkerScalePercent = Clamp(number, 50, 200);
                 }
             }
+            value.DynamicRadarRangeMinimumMeters = Math.Min(value.DynamicRadarRangeMinimumMeters, value.RadarRangeMeters);
             value.NearDistanceMeters = Math.Min(value.NearDistanceMeters, value.RadarRangeMeters);
             return value;
         }
@@ -104,6 +116,7 @@ namespace IRacingRadarConfigurator
         {
             DisplayMode = NormalizeMode(DisplayMode ?? "Both");
             RadarRangeMeters = Clamp(RadarRangeMeters, 5, 200);
+            DynamicRadarRangeMinimumMeters = Clamp(DynamicRadarRangeMinimumMeters, 5, RadarRangeMeters);
             NearDistanceMeters = Clamp(NearDistanceMeters, 1, Math.Min(100, RadarRangeMeters));
             TimeAlertSeconds = Clamp(TimeAlertSeconds, 0.1, 30);
             RadarFadeBandPercent = Clamp(RadarFadeBandPercent, 1, 50);
@@ -145,10 +158,13 @@ namespace IRacingRadarConfigurator
         {
             yield return Pair("DisplayMode", DisplayMode);
             yield return Pair("RadarRangeMeters", Number(RadarRangeMeters));
+            yield return Pair("DynamicRadarRangeEnabled", DynamicRadarRangeEnabled ? "true" : "false");
+            yield return Pair("DynamicRadarRangeMinimumMeters", Number(DynamicRadarRangeMinimumMeters));
             yield return Pair("NearDistanceMeters", Number(NearDistanceMeters));
             yield return Pair("FrontGreenArcEnabled", FrontGreenArcEnabled ? "true" : "false");
             yield return Pair("RearGreenArcEnabled", RearGreenArcEnabled ? "true" : "false");
             yield return Pair("CatchEstimateEnabled", CatchEstimateEnabled ? "true" : "false");
+            yield return Pair("OvertakePredictionEnabled", OvertakePredictionEnabled ? "true" : "false");
             yield return Pair("HideInQualifying", HideInQualifying ? "true" : "false");
             yield return Pair("TimeAlertSeconds", Number(TimeAlertSeconds));
             yield return Pair("TrackBackgroundEnabled", TrackBackgroundEnabled ? "true" : "false");

@@ -14,9 +14,10 @@ namespace User.IRacingRadarPlugin
         internal const int PointCount = 48;
         internal const double CenterX = 210.0;
         internal const double CenterY = 130.0;
-        internal const double CircleRadiusPixels = 129.0;
+        internal const double CircleRadiusPixels = 125.0;
         internal const double PlayerWidthMeters = 1.9;
         internal const double PlayerLengthMeters = 4.8;
+        internal const double ContactCenterDistanceMeters = 4.5;
 
         private static readonly Regex CoordinatePattern = new Regex(
             "\"Value\"\\s*:\\s*\\[\\s*(?<x>[-+0-9.eE]+)\\s*,\\s*(?<y>[-+0-9.eE]+)\\s*,\\s*(?<z>[-+0-9.eE]+)\\s*\\]",
@@ -34,10 +35,12 @@ namespace User.IRacingRadarPlugin
         internal bool Available { get { return points.Count >= 8 && totalLength > 100.0; } }
 
         internal TrackVisualFrame Build(StatusDataBase telemetry, double roadWidthMeters,
-            double pixelsPerMeter)
+            double pixelsPerMeter, double predictedOvertakeDistanceMeters,
+            double frontOpponentRelativeMeters, double rearOpponentRelativeMeters,
+            double markerScalePercent)
         {
             EnsureLoaded(telemetry);
-            TrackVisualFrame frame = TrackVisualFrame.Empty(roadWidthMeters, pixelsPerMeter);
+            TrackVisualFrame frame = TrackVisualFrame.Empty(roadWidthMeters, pixelsPerMeter, markerScalePercent);
             if (!Available || telemetry == null) return frame;
 
             double progress = NormalizeProgress(telemetry.TrackPositionPercent);
@@ -45,12 +48,12 @@ namespace User.IRacingRadarPlugin
 
             // A map record may come from another driving session whose coordinate origin
             // differs. Its recorded lap-progress value is the stable link to live telemetry.
-            WorldPoint mapCenter = SampleAtProgress(progress);
+            double playerDistance = DistanceAtProgress(progress);
+            WorldPoint mapCenter = SampleAtDistance(playerDistance);
             WorldPoint player = mapCenter;
             frame.ProgressPercent = progress * 100.0;
-            double fiveMetersOfLap = 5.0 / totalLength;
-            WorldPoint behind = SampleAtProgress(progress - fiveMetersOfLap);
-            WorldPoint ahead = SampleAtProgress(progress + fiveMetersOfLap);
+            WorldPoint behind = SampleAtDistance(playerDistance - 5.0);
+            WorldPoint ahead = SampleAtDistance(playerDistance + 5.0);
             double forwardX = ahead.X - behind.X;
             double forwardZ = ahead.Z - behind.Z;
             double forwardLength = Math.Sqrt(forwardX * forwardX + forwardZ * forwardZ);
@@ -68,7 +71,7 @@ namespace User.IRacingRadarPlugin
             for (int i = 0; i < PointCount; i++)
             {
                 double offset = -viewRangeMeters + 2.0 * viewRangeMeters * i / (PointCount - 1);
-                WorldPoint sample = SampleAtProgress(progress + offset / totalLength);
+                WorldPoint sample = SampleAtDistance(playerDistance + offset);
                 double dx = sample.X - player.X;
                 double dz = sample.Z - player.Z;
                 double x = CenterX + (dx * rightX + dz * rightZ) * pixelsPerMeter;
@@ -77,7 +80,86 @@ namespace User.IRacingRadarPlugin
                 frame.Points[i] = new TrackVisualPoint(x, y,
                     radius <= CircleRadiusPixels - frame.RoadWidthPixels * 0.52);
             }
+            if (IsFinite(predictedOvertakeDistanceMeters) && predictedOvertakeDistanceMeters > 0.0)
+            {
+                double predictionDistance = playerDistance + predictedOvertakeDistanceMeters;
+                WorldPoint prediction = SampleAtDistance(predictionDistance);
+                double dx = prediction.X - player.X;
+                double dz = prediction.Z - player.Z;
+                double x = CenterX + (dx * rightX + dz * rightZ) * pixelsPerMeter;
+                double y = CenterY - (dx * forwardX + dz * forwardZ) * pixelsPerMeter;
+                double radius = Math.Sqrt((x - CenterX) * (x - CenterX) + (y - CenterY) * (y - CenterY));
+                frame.PredictedOvertakeX = x;
+                frame.PredictedOvertakeY = y;
+                frame.PredictedOvertakeRotation = LocalRotationDegrees(predictionDistance,
+                    rightX, rightZ, forwardX, forwardZ);
+                frame.PredictedOvertakeVisible = radius <= CircleRadiusPixels - frame.RoadWidthPixels * 0.60;
+            }
+            ProjectOpponent(frame, playerDistance, player, rightX, rightZ, forwardX, forwardZ,
+                pixelsPerMeter, frontOpponentRelativeMeters, true);
+            ProjectOpponent(frame, playerDistance, player, rightX, rightZ, forwardX, forwardZ,
+                pixelsPerMeter, rearOpponentRelativeMeters, false);
             return frame;
+        }
+
+        private void ProjectOpponent(TrackVisualFrame frame, double playerDistance, WorldPoint player,
+            double rightX, double rightZ, double forwardX, double forwardZ, double pixelsPerMeter,
+            double relativeMeters, bool front)
+        {
+            if (!IsFinite(relativeMeters) || Math.Abs(relativeMeters) < 0.25) return;
+            double displayedRelativeMeters = CalculateDisplayedOpponentDistance(relativeMeters,
+                pixelsPerMeter, frame.PlayerLengthPixels);
+            double opponentDistance = playerDistance - displayedRelativeMeters;
+            WorldPoint opponent = SampleAtDistance(opponentDistance);
+            double dx = opponent.X - player.X;
+            double dz = opponent.Z - player.Z;
+            double x = CenterX + (dx * rightX + dz * rightZ) * pixelsPerMeter;
+            double y = CenterY - (dx * forwardX + dz * forwardZ) * pixelsPerMeter;
+            double radius = Math.Sqrt((x - CenterX) * (x - CenterX) + (y - CenterY) * (y - CenterY));
+            bool visible = radius <= CircleRadiusPixels - frame.RoadWidthPixels * 0.68;
+            double opacity = TrackVisualFrame.OpponentMarkerOpacity(radius,
+                frame.PlayerLengthPixels);
+            double rotation = LocalRotationDegrees(opponentDistance,
+                rightX, rightZ, forwardX, forwardZ);
+            if (front)
+            {
+                frame.FrontOpponentX = x;
+                frame.FrontOpponentY = y;
+                frame.FrontOpponentVisible = visible;
+                frame.FrontOpponentRotation = rotation;
+                frame.FrontOpponentOpacity = opacity;
+            }
+            else
+            {
+                frame.RearOpponentX = x;
+                frame.RearOpponentY = y;
+                frame.RearOpponentVisible = visible;
+                frame.RearOpponentRotation = rotation;
+                frame.RearOpponentOpacity = opacity;
+            }
+        }
+
+        internal static double CalculateDisplayedOpponentDistance(double relativeMeters,
+            double pixelsPerMeter, double markerLengthPixels)
+        {
+            if (!IsFinite(relativeMeters) || pixelsPerMeter <= 0.0 || markerLengthPixels <= 0.0)
+                return relativeMeters;
+            double physicalGapMeters = Math.Max(0.0,
+                Math.Abs(relativeMeters) - ContactCenterDistanceMeters);
+            double displayedMagnitude = markerLengthPixels / pixelsPerMeter + physicalGapMeters;
+            return relativeMeters < 0.0 ? -displayedMagnitude : displayedMagnitude;
+        }
+
+        private double LocalRotationDegrees(double distance, double rightX, double rightZ,
+            double forwardX, double forwardZ)
+        {
+            WorldPoint behind = SampleAtDistance(distance - 5.0);
+            WorldPoint ahead = SampleAtDistance(distance + 5.0);
+            double dx = ahead.X - behind.X;
+            double dz = ahead.Z - behind.Z;
+            double screenX = dx * rightX + dz * rightZ;
+            double screenY = -(dx * forwardX + dz * forwardZ);
+            return Math.Atan2(screenY, screenX) * 180.0 / Math.PI + 90.0;
         }
         private static double NormalizeProgress(double progress)
         {
@@ -220,6 +302,11 @@ namespace User.IRacingRadarPlugin
 
         private WorldPoint SampleAtProgress(double progress)
         {
+            return SampleAtDistance(DistanceAtProgress(progress));
+        }
+
+        private double DistanceAtProgress(double progress)
+        {
             progress = NormalizeProgress(progress);
             int low;
             int next;
@@ -250,6 +337,38 @@ namespace User.IRacingRadarPlugin
             }
             double segment = end - start;
             double amount = segment > 0.0000001 ? (target - start) / segment : 0.0;
+            double startDistance = cumulative[low];
+            double endDistance = next == 0 ? totalLength : cumulative[next];
+            return startDistance + (endDistance - startDistance) * amount;
+        }
+
+        private WorldPoint SampleAtDistance(double distance)
+        {
+            if (!IsFinite(distance) || totalLength <= 0.0 || points.Count == 0)
+                return new WorldPoint(0.0, 0.0);
+            distance %= totalLength;
+            if (distance < 0.0) distance += totalLength;
+
+            int low = 0;
+            int high = cumulative.Count - 1;
+            while (low < high)
+            {
+                int middle = (low + high + 1) / 2;
+                if (cumulative[middle] <= distance) low = middle;
+                else high = middle - 1;
+            }
+            int next = low + 1;
+            double startDistance = cumulative[low];
+            double endDistance;
+            if (next >= points.Count)
+            {
+                next = 0;
+                endDistance = totalLength;
+            }
+            else
+                endDistance = cumulative[next];
+            double segment = endDistance - startDistance;
+            double amount = segment > 0.0000001 ? (distance - startDistance) / segment : 0.0;
             return new WorldPoint(
                 points[low].X + (points[next].X - points[low].X) * amount,
                 points[low].Z + (points[next].Z - points[low].Z) * amount);
@@ -278,22 +397,51 @@ namespace User.IRacingRadarPlugin
         internal double RoadWidthPixels;
         internal double PlayerWidthPixels;
         internal double PlayerLengthPixels;
+        internal bool PredictedOvertakeVisible;
+        internal double PredictedOvertakeX = TrackMapGeometry.CenterX;
+        internal double PredictedOvertakeY = TrackMapGeometry.CenterY;
+        internal double PredictedOvertakeRotation;
+        internal bool FrontOpponentVisible;
+        internal double FrontOpponentX = TrackMapGeometry.CenterX;
+        internal double FrontOpponentY = TrackMapGeometry.CenterY;
+        internal double FrontOpponentRotation;
+        internal double FrontOpponentOpacity = 100.0;
+        internal bool RearOpponentVisible;
+        internal double RearOpponentX = TrackMapGeometry.CenterX;
+        internal double RearOpponentY = TrackMapGeometry.CenterY;
+        internal double RearOpponentRotation;
+        internal double RearOpponentOpacity = 100.0;
         internal readonly TrackVisualPoint[] Points = new TrackVisualPoint[TrackMapGeometry.PointCount];
 
         internal const double DefaultPixelsPerMeter = 3.5;
-        internal const double ReferencePlayerWidthPixels = 12.0;
-        internal const double ReferencePlayerLengthPixels = 30.0;
+        internal const double ReferencePlayerWidthPixels = 13.44;
+        internal const double ReferencePlayerLengthPixels = 28.0;
 
-        internal static TrackVisualFrame Empty(double roadWidthMeters, double pixelsPerMeter)
+        internal static TrackVisualFrame Empty(double roadWidthMeters, double pixelsPerMeter,
+            double markerScalePercent = 100.0)
         {
-            pixelsPerMeter = Math.Max(2.0, Math.Min(12.0, pixelsPerMeter));
+            pixelsPerMeter = Math.Max(1.0, Math.Min(50.0, pixelsPerMeter));
+            double zoom = Math.Max(0.0, Math.Min(1.0,
+                (pixelsPerMeter - 1.75) / 1.75));
+            double markerScale = Math.Max(0.5, Math.Min(2.0, markerScalePercent / 100.0));
+            double markerLength = (27.0 + 7.0 * zoom) * markerScale;
+            double markerWidth = markerLength * 0.48;
             return new TrackVisualFrame
             {
                 PixelsPerMeter = pixelsPerMeter,
-                RoadWidthPixels = roadWidthMeters * pixelsPerMeter,
-                PlayerWidthPixels = ReferencePlayerWidthPixels,
-                PlayerLengthPixels = ReferencePlayerLengthPixels
+                RoadWidthPixels = Math.Max(roadWidthMeters * pixelsPerMeter,
+                    roadWidthMeters * DefaultPixelsPerMeter * 0.90),
+                PlayerWidthPixels = markerWidth,
+                PlayerLengthPixels = markerLength
             };
+        }
+
+        internal static double OpponentMarkerOpacity(double centerDistancePixels,
+            double markerLengthPixels)
+        {
+            double progress = markerLengthPixels <= 0.0 ? 1.0 :
+                Math.Max(0.0, Math.Min(1.0, centerDistancePixels / markerLengthPixels));
+            return 45.0 + 55.0 * progress;
         }
     }
 

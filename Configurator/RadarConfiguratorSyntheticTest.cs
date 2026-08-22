@@ -23,6 +23,7 @@ namespace IRacingRadarConfigurator
             bool defaultsPass = defaults.DisplayMode == "Both" && defaults.RadarRangeMeters == 70 &&
                 defaults.NearDistanceMeters == 20 && defaults.TimeAlertSeconds == 0.7 &&
                 defaults.FrontGreenArcEnabled && defaults.RearGreenArcEnabled && defaults.CatchEstimateEnabled &&
+                defaults.OvertakePredictionEnabled &&
                 defaults.HideInQualifying &&
                 defaults.TrackBackgroundEnabled && !defaults.TrackBackgroundAlwaysVisible &&
                 defaults.TrackScalePixelsPerMeter == 3.5 && defaults.ReferenceTrackWidthMeters == 10.5 &&
@@ -30,12 +31,12 @@ namespace IRacingRadarConfigurator
                 defaults.RadarFadeBandPercent == 15 && defaults.LabelFontSize == 22 && defaults.OverlayOpacity == 92;
 
             string source = "# keep this comment\nDisplayMode=Time\nRadarRangeMeters=500\n" +
-                "NearDistanceMeters=90\nFrontGreenArcEnabled=false\nRearGreenArcEnabled=yes\nCatchEstimateEnabled=false\nHideInQualifying=false\n" +
+                "NearDistanceMeters=90\nFrontGreenArcEnabled=false\nRearGreenArcEnabled=yes\nCatchEstimateEnabled=false\nOvertakePredictionEnabled=false\nHideInQualifying=false\n" +
                 "TrackBackgroundEnabled=false\nTrackBackgroundAlwaysVisible=true\nTrackScalePixelsPerMeter=30\nReferenceTrackWidthMeters=30\nPlayerMarkerScalePercent=300\n" +
                 "TimeAlertSeconds=0.4\nRadarFadeBandPercent=80\nLabelFontSize=8\nOverlayOpacity=110\n";
             RadarConfiguratorSettings parsed = RadarConfiguratorSettings.Parse(source);
             bool parsePass = parsed.DisplayMode == "Time" && parsed.RadarRangeMeters == 200 &&
-                parsed.NearDistanceMeters == 90 && !parsed.FrontGreenArcEnabled && parsed.RearGreenArcEnabled && !parsed.CatchEstimateEnabled &&
+                parsed.NearDistanceMeters == 90 && !parsed.FrontGreenArcEnabled && parsed.RearGreenArcEnabled && !parsed.CatchEstimateEnabled && !parsed.OvertakePredictionEnabled &&
                 !parsed.HideInQualifying &&
                 !parsed.TrackBackgroundEnabled && parsed.TrackBackgroundAlwaysVisible &&
                 parsed.TrackScalePixelsPerMeter == 12 && parsed.ReferenceTrackWidthMeters == 20 &&
@@ -59,6 +60,7 @@ namespace IRacingRadarConfigurator
                 savePass = saved.RadarRangeMeters == 70 && saved.NearDistanceMeters == 20 &&
                     saved.ReferenceTrackWidthMeters == 20 && saved.TrackScalePixelsPerMeter == 12 &&
                     saved.PlayerMarkerScalePercent == 200 &&
+                    !saved.OvertakePredictionEnabled &&
                     saved.TrackBackgroundAlwaysVisible && !saved.TrackBackgroundEnabled && !saved.HideInQualifying &&
                     File.ReadAllText(path).Contains("# keep this comment");
                 string preferencesPath = path + ".ui";

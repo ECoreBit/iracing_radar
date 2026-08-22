@@ -15,6 +15,7 @@ namespace User.IRacingRadarPlugin
         private const double HoldSeconds = 0.45;
         private const double PositionRangeMeters = 18.0;
         private const double ColorTransitionMeters = 2.5;
+        private const double DynamicRangeTransitionMeters = 12.0;
         private const double MotionSmoothingSeconds = 0.30;
         private const double MotionEnterMetersPerSecond = 0.45;
         private const double MotionNeutralMetersPerSecond = 0.20;
@@ -37,6 +38,11 @@ namespace User.IRacingRadarPlugin
         private double rightVisualOpacity;
         private double lastSideVisualUpdate;
         private double frontMeters;
+        private double effectiveRadarRangeMeters;
+        private double frontEffectiveRadarRangeMeters;
+        private double rearEffectiveRadarRangeMeters;
+        private double effectiveTrackScalePixelsPerMeter;
+        private double lastTrackEffectiveRangeMeters;
         private double rearMeters;
         private double frontSeconds;
         private double frontCatchSeconds;
@@ -82,6 +88,12 @@ namespace User.IRacingRadarPlugin
         {
             PluginManager = pluginManager;
             settings = RadarSettings.Load(settingsPath);
+            effectiveRadarRangeMeters = settings.RadarRangeMeters;
+            frontEffectiveRadarRangeMeters = settings.RadarRangeMeters;
+            rearEffectiveRadarRangeMeters = settings.RadarRangeMeters;
+            effectiveTrackScalePixelsPerMeter = CalculateEffectiveTrackScale(settings,
+                settings.RadarRangeMeters);
+            lastTrackEffectiveRangeMeters = settings.RadarRangeMeters;
             Add("Connected", false, "True while iRacing telemetry is active.");
             Add("LeftVisible", false, "Show the left opponent block.");
             Add("RightVisible", false, "Show the right opponent block.");
@@ -118,6 +130,13 @@ namespace User.IRacingRadarPlugin
             Add("FrontClosingSpeed", 0.0, "Smoothed front closing speed in m/s.");
             Add("FrontCatchSeconds", 0.0, "Estimated seconds until catching the front car.");
             Add("CatchEstimateEnabled", settings.CatchEstimateEnabled, "Configured catch-time estimate switch.");
+            Add("OvertakePredictionEnabled", settings.OvertakePredictionEnabled,
+                "Show the calculated front-car catch point on the local track map.");
+            Add("OvertakePredictionVisible", false, "A predicted front-car catch point is visible on the local map.");
+            Add("OvertakePredictionX", TrackMapGeometry.CenterX, "Local-map X coordinate of the predicted catch point.");
+            Add("OvertakePredictionY", TrackMapGeometry.CenterY, "Local-map Y coordinate of the predicted catch point.");
+            Add("OvertakePredictionRotation", 0.0, "Rotation of the perpendicular predicted-catch marker.");
+            Add("OvertakePredictionSeconds", 0.0, "Seconds until the predicted front-car catch point.");
             Add("HideInQualifying", settings.HideInQualifying, "Hide all radar visuals during qualifying sessions.");
             Add("QualifyingSession", false, "True while the current iRacing session is qualifying.");
             Add("RearClosingSpeed", 0.0, "Smoothed rear closing speed in m/s.");
@@ -126,6 +145,14 @@ namespace User.IRacingRadarPlugin
             Add("RadarVisible", false, "True while the smoothed radar opacity is above zero.");
             Add("RadarVisualOpacity", 0.0, "Distance/time-driven overall radar opacity from 0 to 100.");
             Add("RadarRangeMeters", settings.RadarRangeMeters, "Configured distance alert threshold.");
+            Add("DynamicRadarRangeEnabled", settings.DynamicRadarRangeEnabled,
+                "Scale the distance alert range with player speed.");
+            Add("DynamicRadarRangeMinimumMeters", settings.DynamicRadarRangeMinimumMeters,
+                "Distance alert range used at low speed when dynamic range is enabled.");
+            Add("EffectiveRadarRangeMeters", settings.RadarRangeMeters,
+                "Current speed-adjusted distance alert range.");
+            Add("EffectiveTrackScalePixelsPerMeter", settings.TrackScalePixelsPerMeter,
+                "Current local-map scale synchronized with the effective radar range.");
             Add("TimeAlertSeconds", settings.TimeAlertSeconds, "Configured time-gap alert threshold.");
             Add("RadarFadeBandPercent", settings.RadarFadeBandPercent, "Configured outer opacity transition band percentage.");
             Add("FrontGreenArcEnabled", settings.FrontGreenArcEnabled, "Configured front green arc switch.");
@@ -143,6 +170,17 @@ namespace User.IRacingRadarPlugin
             Add("TrackRoadWidth", trackFrame.RoadWidthPixels, "Reference track width in overlay pixels.");
             Add("TrackPlayerWidth", trackFrame.PlayerWidthPixels, "Proportional player width in overlay pixels.");
             Add("TrackPlayerLength", trackFrame.PlayerLengthPixels, "Proportional player length in overlay pixels.");
+            Add("TrackOpponentMarkerSize", 12.0, "Local-map opponent marker size in overlay pixels.");
+            Add("FrontOpponentMapVisible", false, "Nearest front opponent is visible on the local map.");
+            Add("FrontOpponentMapX", TrackMapGeometry.CenterX, "Local-map X coordinate of the front opponent.");
+            Add("FrontOpponentMapY", TrackMapGeometry.CenterY, "Local-map Y coordinate of the front opponent.");
+            Add("FrontOpponentMapRotation", 0.0, "Local-map rotation of the front opponent marker.");
+            Add("FrontOpponentMapOpacity", 100.0, "Local-map opacity of the front opponent marker.");
+            Add("RearOpponentMapVisible", false, "Nearest rear opponent is visible on the local map.");
+            Add("RearOpponentMapX", TrackMapGeometry.CenterX, "Local-map X coordinate of the rear opponent.");
+            Add("RearOpponentMapY", TrackMapGeometry.CenterY, "Local-map Y coordinate of the rear opponent.");
+            Add("RearOpponentMapRotation", 0.0, "Local-map rotation of the rear opponent marker.");
+            Add("RearOpponentMapOpacity", 100.0, "Local-map opacity of the rear opponent marker.");
             Add("PlayerMarkerScalePercent", settings.PlayerMarkerScalePercent,
                 "Configured player-marker scale percentage.");
             Add("TrackMapSource", "", "Loaded SimHub map-record filename.");
@@ -175,7 +213,7 @@ namespace User.IRacingRadarPlugin
                 {
                     ResetVisualState();
                     trackFrame = TrackVisualFrame.Empty(settings.ReferenceTrackWidthMeters,
-                        settings.TrackScalePixelsPerMeter);
+                        settings.TrackScalePixelsPerMeter, settings.PlayerMarkerScalePercent);
                     Publish(connected, nativeLeftRight);
                     return;
                 }
@@ -190,39 +228,54 @@ namespace User.IRacingRadarPlugin
 
                 double[] nearby = GetRelativeDistances(telemetry, PositionRangeMeters);
                 double playerSpeedKmh = telemetry.SpeedKmh;
-                Opponent frontOpponent = FindNearestOpponent(telemetry, settings, true);
-                Opponent rearOpponent = FindNearestOpponent(telemetry, settings, false);
+                Opponent frontOpponent = FindNearestOpponentWithinRange(telemetry, settings, true, settings.RadarRangeMeters);
+                Opponent rearOpponent = FindNearestOpponentWithinRange(telemetry, settings, false, settings.RadarRangeMeters);
                 frontMeters = ReadOpponentDistance(frontOpponent);
                 rearMeters = ReadOpponentDistance(rearOpponent);
+                frontEffectiveRadarRangeMeters = CalculateEffectiveRadarRange(settings, frontMeters);
+                rearEffectiveRadarRangeMeters = CalculateEffectiveRadarRange(settings, rearMeters);
+                effectiveRadarRangeMeters = Math.Min(frontEffectiveRadarRangeMeters, rearEffectiveRadarRangeMeters);
+                if (leftDetected || rightDetected)
+                {
+                    if (lastTrackEffectiveRangeMeters > 0.0)
+                        effectiveRadarRangeMeters = lastTrackEffectiveRangeMeters;
+                }
+                else
+                    lastTrackEffectiveRangeMeters = effectiveRadarRangeMeters;
+                double targetTrackScalePixelsPerMeter = CalculateEffectiveTrackScale(settings,
+                    effectiveRadarRangeMeters);
+                effectiveTrackScalePixelsPerMeter = SmoothTrackScale(effectiveTrackScalePixelsPerMeter,
+                    targetTrackScalePixelsPerMeter, sideVisualElapsed);
                 frontSeconds = ReadUsableOpponentGap(frontOpponent, frontMeters, playerSpeedKmh);
                 rearSeconds = ReadUsableOpponentGap(rearOpponent, rearMeters, playerSpeedKmh);
                 frontMotion = UpdateMotion(frontMotion, frontOpponent, frontMeters, now);
                 rearMotion = UpdateMotion(rearMotion, rearOpponent, rearMeters, now);
                 frontCatchSeconds = CalculateCatchSeconds(frontMeters, frontMotion.ClosingSpeed);
-                frontProximityOpacity = CalculateProximityOpacity(frontMeters, frontSeconds, settings);
-                rearProximityOpacity = CalculateProximityOpacity(rearMeters, rearSeconds, settings);
+                frontProximityOpacity = CalculateProximityOpacity(frontMeters, frontSeconds, settings, frontEffectiveRadarRangeMeters);
+                rearProximityOpacity = CalculateProximityOpacity(rearMeters, rearSeconds, settings, rearEffectiveRadarRangeMeters);
                 double progressElapsed = lastProgressUpdate > 0.0 ? now - lastProgressUpdate : 0.016;
                 lastProgressUpdate = now;
                 double frontAlertProgress = frontOpponent != null
-                    ? CalculateAlertProgress(frontMeters, frontSeconds, settings) : 0.0;
+                    ? CalculateAlertProgress(frontMeters, frontSeconds, settings, frontEffectiveRadarRangeMeters) : 0.0;
                 double rearAlertProgress = rearOpponent != null
-                    ? CalculateAlertProgress(rearMeters, rearSeconds, settings) : 0.0;
-                double nearStartProgress = CalculateNearStartProgress(settings);
+                    ? CalculateAlertProgress(rearMeters, rearSeconds, settings, rearEffectiveRadarRangeMeters) : 0.0;
+                double frontNearStartProgress = CalculateNearStartProgress(settings, frontEffectiveRadarRangeMeters);
+                double rearNearStartProgress = CalculateNearStartProgress(settings, rearEffectiveRadarRangeMeters);
                 double nearTransitionProgress = Math.Max(2.0,
                     ColorTransitionMeters / settings.RadarRangeMeters * 100.0);
-                double frontProgressTarget = CalculateNearProgress(frontAlertProgress, nearStartProgress);
-                double rearProgressTarget = CalculateNearProgress(rearAlertProgress, nearStartProgress);
-                double frontNearBlendTarget = CalculateNearBlend(frontAlertProgress, nearStartProgress, nearTransitionProgress);
-                double rearNearBlendTarget = CalculateNearBlend(rearAlertProgress, nearStartProgress, nearTransitionProgress);
+                double frontProgressTarget = CalculateNearProgress(frontAlertProgress, frontNearStartProgress);
+                double rearProgressTarget = CalculateNearProgress(rearAlertProgress, rearNearStartProgress);
+                double frontNearBlendTarget = CalculateNearBlend(frontAlertProgress, frontNearStartProgress, nearTransitionProgress);
+                double rearNearBlendTarget = CalculateNearBlend(rearAlertProgress, rearNearStartProgress, nearTransitionProgress);
                 frontNearProgress = SmoothProgress(frontNearProgress, frontProgressTarget, progressElapsed);
                 rearNearProgress = SmoothProgress(rearNearProgress, rearProgressTarget, progressElapsed);
                 frontNearBlend = SmoothProgress(frontNearBlend, frontNearBlendTarget, progressElapsed);
                 rearNearBlend = SmoothProgress(rearNearBlend, rearNearBlendTarget, progressElapsed);
                 frontFarProgress = SmoothProgress(frontFarProgress,
-                    frontOpponent != null ? CalculateFarProgress(frontAlertProgress, nearStartProgress) : 0.0,
+                    frontOpponent != null ? CalculateFarProgress(frontAlertProgress, frontNearStartProgress) : 0.0,
                     progressElapsed);
                 rearFarProgress = SmoothProgress(rearFarProgress,
-                    rearOpponent != null ? CalculateFarProgress(rearAlertProgress, nearStartProgress) : 0.0,
+                    rearOpponent != null ? CalculateFarProgress(rearAlertProgress, rearNearStartProgress) : 0.0,
                     progressElapsed);
                 bool sideClear = !leftDetected && !rightDetected;
                 frontVisible = frontOpponent != null && frontNearBlendTarget > 0.5 && sideClear;
@@ -263,11 +316,17 @@ namespace User.IRacingRadarPlugin
                     Math.Max(frontRadarOpacity, rearRadarOpacity));
                 radarVisualOpacity = radarTargetOpacity;
                 radarVisible = radarVisualOpacity > 0.1;
+                bool predictionGreenStage = IsGreenPredictionStage(frontFarVisible, frontVisible);
+                double predictedOvertakeDistance = predictionGreenStage
+                    ? CalculatePredictedOvertakeDistance(playerSpeedKmh) : double.NaN;
+                double mapFrontMeters = sideClear ? frontMeters : double.NaN;
+                double mapRearMeters = sideClear ? rearMeters : double.NaN;
                 trackFrame = settings.TrackBackgroundEnabled
                     ? trackMap.Build(telemetry, settings.ReferenceTrackWidthMeters,
-                        settings.TrackScalePixelsPerMeter)
+                        effectiveTrackScalePixelsPerMeter, predictedOvertakeDistance, mapFrontMeters, mapRearMeters,
+                        settings.PlayerMarkerScalePercent)
                     : TrackVisualFrame.Empty(settings.ReferenceTrackWidthMeters,
-                        settings.TrackScalePixelsPerMeter);
+                        effectiveTrackScalePixelsPerMeter, settings.PlayerMarkerScalePercent);
                 if (settings.TrackBackgroundAlwaysVisible && trackFrame.Available)
                 {
                     radarVisualOpacity = 100.0;
@@ -279,6 +338,19 @@ namespace User.IRacingRadarPlugin
             {
                 Set("StatusText", "radar error: " + ex.GetType().Name);
             }
+        }
+
+        private double CalculatePredictedOvertakeDistance(double playerSpeedKmh)
+        {
+            if (!settings.CatchEstimateEnabled || !settings.OvertakePredictionEnabled ||
+                !IsFinite(frontCatchSeconds) || !IsFinite(playerSpeedKmh) || playerSpeedKmh <= 5.0)
+                return double.NaN;
+            return frontCatchSeconds * playerSpeedKmh / 3.6;
+        }
+
+        private static bool IsGreenPredictionStage(bool greenVisible, bool redVisible)
+        {
+            return greenVisible && !redVisible;
         }
 
         private void ResetVisualState()
@@ -295,6 +367,12 @@ namespace User.IRacingRadarPlugin
             rightVisualOpacity = 0.0;
             lastSideVisualUpdate = 0.0;
             frontMeters = double.NaN;
+            effectiveRadarRangeMeters = settings.RadarRangeMeters;
+            frontEffectiveRadarRangeMeters = settings.RadarRangeMeters;
+            rearEffectiveRadarRangeMeters = settings.RadarRangeMeters;
+            effectiveTrackScalePixelsPerMeter = CalculateEffectiveTrackScale(settings,
+                settings.RadarRangeMeters);
+            lastTrackEffectiveRangeMeters = settings.RadarRangeMeters;
             rearMeters = double.NaN;
             frontSeconds = double.NaN;
             frontCatchSeconds = double.NaN;
@@ -327,6 +405,13 @@ namespace User.IRacingRadarPlugin
 
         private static Opponent FindNearestOpponent(StatusDataBase telemetry, RadarSettings settings, bool ahead)
         {
+            return FindNearestOpponentWithinRange(telemetry, settings, ahead,
+                CalculateEffectiveRadarRange(settings, telemetry == null ? double.NaN : telemetry.SpeedKmh));
+        }
+
+        private static Opponent FindNearestOpponentWithinRange(StatusDataBase telemetry, RadarSettings settings, bool ahead,
+            double effectiveRangeMeters)
+        {
             Opponent nearest = null;
             double nearestMagnitude = double.MaxValue;
             IEnumerable<Opponent> opponents = ahead
@@ -346,7 +431,7 @@ namespace User.IRacingRadarPlugin
                 if (ahead ? meters >= -0.25 : meters <= 0.25) continue;
 
                 double seconds = ReadOpponentGap(opponent);
-                bool triggered = ShouldTrigger(settings, meters, seconds, telemetry.SpeedKmh);
+                bool triggered = ShouldTriggerWithinRange(settings, meters, seconds, telemetry.SpeedKmh, effectiveRangeMeters);
                 if (!triggered) continue;
 
                 double magnitude = Math.Abs(meters);
@@ -361,7 +446,13 @@ namespace User.IRacingRadarPlugin
         }
         private static bool ShouldTrigger(RadarSettings settings, double meters, double seconds, double playerSpeedKmh)
         {
-            bool distanceTriggered = IsFinite(meters) && Math.Abs(meters) <= settings.RadarRangeMeters;
+            return ShouldTriggerWithinRange(settings, meters, seconds, playerSpeedKmh,
+                CalculateEffectiveRadarRange(settings, meters));
+        }
+        private static bool ShouldTriggerWithinRange(RadarSettings settings, double meters, double seconds,
+            double playerSpeedKmh, double effectiveRangeMeters)
+        {
+            bool distanceTriggered = IsFinite(meters) && Math.Abs(meters) <= effectiveRangeMeters;
             bool timeTriggered = IsUsableTimeGap(meters, seconds, playerSpeedKmh) &&
                 Math.Abs(seconds) <= settings.TimeAlertSeconds;
             if (settings.DisplayMode == "Distance") return distanceTriggered;
@@ -401,9 +492,10 @@ namespace User.IRacingRadarPlugin
             return Math.Abs(meters) <= plausibleDistance;
         }
 
-        private static double CalculateProximityOpacity(double meters, double seconds, RadarSettings settings)
+        private static double CalculateProximityOpacity(double meters, double seconds, RadarSettings settings,
+            double effectiveRangeMeters)
         {
-            double distanceOpacity = CalculateThresholdOpacity(Math.Abs(meters), settings.RadarRangeMeters,
+            double distanceOpacity = CalculateThresholdOpacity(Math.Abs(meters), effectiveRangeMeters,
                 settings.RadarFadeBandPercent);
             double timeOpacity = CalculateThresholdOpacity(Math.Abs(seconds), settings.TimeAlertSeconds,
                 settings.RadarFadeBandPercent);
@@ -434,9 +526,10 @@ namespace User.IRacingRadarPlugin
             return opacity * blend / 100.0;
         }
 
-        private static double CalculateAlertProgress(double meters, double seconds, RadarSettings settings)
+        private static double CalculateAlertProgress(double meters, double seconds, RadarSettings settings,
+            double effectiveRangeMeters)
         {
-            double distanceProgress = CalculateThresholdProgress(Math.Abs(meters), settings.RadarRangeMeters);
+            double distanceProgress = CalculateThresholdProgress(Math.Abs(meters), effectiveRangeMeters);
             double timeProgress = CalculateThresholdProgress(Math.Abs(seconds), settings.TimeAlertSeconds);
             if (settings.DisplayMode == "Distance") return distanceProgress;
             if (settings.DisplayMode == "Time") return timeProgress;
@@ -449,10 +542,41 @@ namespace User.IRacingRadarPlugin
             return Math.Max(0.0, Math.Min(100.0, (1.0 - value / threshold) * 100.0));
         }
 
-        private static double CalculateNearStartProgress(RadarSettings settings)
+        private static double CalculateNearStartProgress(RadarSettings settings, double effectiveRangeMeters)
         {
             return Math.Max(1.0, Math.Min(95.0,
-                (1.0 - settings.NearDistanceMeters / settings.RadarRangeMeters) * 100.0));
+                (1.0 - settings.NearDistanceMeters / effectiveRangeMeters) * 100.0));
+        }
+        private static double CalculateEffectiveRadarRange(RadarSettings settings, double opponentRelativeMeters)
+        {
+            if (settings == null || !settings.DynamicRadarRangeEnabled) return settings == null ? 70.0 : settings.RadarRangeMeters;
+            double minimum = Math.Min(settings.DynamicRadarRangeMinimumMeters, settings.RadarRangeMeters);
+            if (!IsFinite(opponentRelativeMeters)) return settings.RadarRangeMeters;
+            double distance = Math.Abs(opponentRelativeMeters);
+            double transitionEnd = settings.NearDistanceMeters + DynamicRangeTransitionMeters;
+            double progress = Math.Max(0.0, Math.Min(1.0,
+                (distance - settings.NearDistanceMeters) / Math.Max(0.01, transitionEnd - settings.NearDistanceMeters)));
+            progress = progress * progress * (3.0 - 2.0 * progress);
+            return minimum + (settings.RadarRangeMeters - minimum) * progress;
+        }
+
+        private static double SmoothTrackScale(double current, double target, double elapsed)
+        {
+            if (!IsFinite(current) || current <= 0.0) return target;
+            elapsed = Math.Max(0.0, Math.Min(0.25, elapsed));
+            double alpha = 1.0 - Math.Exp(-elapsed / 0.16);
+            return current + (target - current) * alpha;
+        }
+
+        private static double CalculateEffectiveTrackScale(RadarSettings settings, double effectiveRangeMeters)
+        {
+            if (settings == null) return TrackVisualFrame.DefaultPixelsPerMeter;
+            // The local map deliberately shows twice the active alert distance, leaving
+            // enough road visible beyond the green/red radar boundary for orientation.
+            double mapScale = settings.TrackScalePixelsPerMeter * 0.5;
+            if (!settings.DynamicRadarRangeEnabled || !IsFinite(effectiveRangeMeters) || effectiveRangeMeters <= 0.0)
+                return mapScale;
+            return mapScale * settings.RadarRangeMeters / effectiveRangeMeters;
         }
 
         private static double SmoothSideOpacity(double current, double target, double elapsed)
@@ -669,6 +793,10 @@ namespace User.IRacingRadarPlugin
             Set("RadarVisible", radarVisible);
             Set("RadarVisualOpacity", radarVisualOpacity);
             Set("RadarRangeMeters", settings.RadarRangeMeters);
+            Set("DynamicRadarRangeEnabled", settings.DynamicRadarRangeEnabled);
+            Set("DynamicRadarRangeMinimumMeters", settings.DynamicRadarRangeMinimumMeters);
+            Set("EffectiveRadarRangeMeters", effectiveRadarRangeMeters);
+            Set("EffectiveTrackScalePixelsPerMeter", effectiveTrackScalePixelsPerMeter);
             Set("TimeAlertSeconds", settings.TimeAlertSeconds);
             Set("RadarFadeBandPercent", settings.RadarFadeBandPercent);
             Set("FrontGreenArcEnabled", settings.FrontGreenArcEnabled);
@@ -683,7 +811,29 @@ namespace User.IRacingRadarPlugin
             Set("TrackRoadWidth", trackFrame.RoadWidthPixels);
             Set("TrackPlayerWidth", trackFrame.PlayerWidthPixels);
             Set("TrackPlayerLength", trackFrame.PlayerLengthPixels);
+            Set("TrackOpponentMarkerSize", Math.Max(6.0, trackFrame.PlayerWidthPixels));
+            Set("FrontOpponentMapVisible", connected && radarVisible && settings.TrackBackgroundEnabled &&
+                trackFrame.FrontOpponentVisible);
+            Set("FrontOpponentMapX", trackFrame.FrontOpponentX);
+            Set("FrontOpponentMapY", trackFrame.FrontOpponentY);
+            Set("FrontOpponentMapRotation", trackFrame.FrontOpponentRotation);
+            Set("FrontOpponentMapOpacity", trackFrame.FrontOpponentOpacity);
+            Set("RearOpponentMapVisible", connected && radarVisible && settings.TrackBackgroundEnabled &&
+                trackFrame.RearOpponentVisible);
+            Set("RearOpponentMapX", trackFrame.RearOpponentX);
+            Set("RearOpponentMapY", trackFrame.RearOpponentY);
+            Set("RearOpponentMapRotation", trackFrame.RearOpponentRotation);
+            Set("RearOpponentMapOpacity", trackFrame.RearOpponentOpacity);
             Set("PlayerMarkerScalePercent", settings.PlayerMarkerScalePercent);
+            Set("OvertakePredictionEnabled", settings.OvertakePredictionEnabled);
+            Set("OvertakePredictionVisible", connected && radarVisible && settings.TrackBackgroundEnabled &&
+                settings.CatchEstimateEnabled && settings.OvertakePredictionEnabled &&
+                IsGreenPredictionStage(frontFarVisible, frontVisible) &&
+                trackFrame.PredictedOvertakeVisible);
+            Set("OvertakePredictionX", trackFrame.PredictedOvertakeX);
+            Set("OvertakePredictionY", trackFrame.PredictedOvertakeY);
+            Set("OvertakePredictionRotation", trackFrame.PredictedOvertakeRotation);
+            Set("OvertakePredictionSeconds", IsFinite(frontCatchSeconds) ? frontCatchSeconds : 0.0);
             Set("TrackMapSource", trackMap.SourceName ?? string.Empty);
             Set("TrackProgressPercent", trackFrame.ProgressPercent);
             for (int i = 0; i < TrackMapGeometry.PointCount; i++)

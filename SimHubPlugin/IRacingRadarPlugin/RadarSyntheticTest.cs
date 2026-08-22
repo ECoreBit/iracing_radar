@@ -50,6 +50,7 @@ internal static class RadarSyntheticTest
             (bool)settingsType.GetProperty("FrontGreenArcEnabled").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("RearGreenArcEnabled").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("CatchEstimateEnabled").GetValue(settings, null) &&
+            (bool)settingsType.GetProperty("OvertakePredictionEnabled").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("HideInQualifying").GetValue(settings, null) &&
             (bool)settingsType.GetProperty("TrackBackgroundEnabled").GetValue(settings, null) &&
             !(bool)settingsType.GetProperty("TrackBackgroundAlwaysVisible").GetValue(settings, null) &&
@@ -180,12 +181,17 @@ internal static class RadarSyntheticTest
             redGrowing > 0.0 && blendBefore == 0.0 && blendAfter == 100.0;
 
         MethodInfo catchSeconds = pluginType.GetMethod("CalculateCatchSeconds", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo greenPredictionStage = pluginType.GetMethod("IsGreenPredictionStage", BindingFlags.NonPublic | BindingFlags.Static);
         double fastCatch = (double)catchSeconds.Invoke(null, new object[] { -20.0, 5.0 });
         double slowCatch = (double)catchSeconds.Invoke(null, new object[] { -20.0, 1.0 });
         double rearCatch = (double)catchSeconds.Invoke(null, new object[] { 20.0, 5.0 });
         double distantCatch = (double)catchSeconds.Invoke(null, new object[] { -100.0, 5.0 });
         bool catchEstimatePass = Math.Abs(fastCatch - 4.0) < 0.001 &&
             double.IsNaN(slowCatch) && double.IsNaN(rearCatch) && double.IsNaN(distantCatch);
+        bool greenPredictionPass =
+            (bool)greenPredictionStage.Invoke(null, new object[] { true, false }) &&
+            !(bool)greenPredictionStage.Invoke(null, new object[] { true, true }) &&
+            !(bool)greenPredictionStage.Invoke(null, new object[] { false, false });
         MethodInfo closingSpeed = pluginType.GetMethod("CalculateClosingSpeed", BindingFlags.NonPublic | BindingFlags.Static);
         double rearClosing = (double)closingSpeed.Invoke(null, new object[] { 20.0, 15.0, 1.0 });
         double rearSeparating = (double)closingSpeed.Invoke(null, new object[] { 20.0, 25.0, 1.0 });
@@ -199,6 +205,87 @@ internal static class RadarSyntheticTest
             frontClosing > 0.0 && frontSeparating < 0.0 &&
             closingState == 1 && separatingState == -1 && steadyState == 0;
 
+        Type trackFrameType = plugin.GetType("User.IRacingRadarPlugin.TrackVisualFrame", true);
+        MethodInfo emptyTrackFrame = trackFrameType.GetMethod("Empty", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo opponentMarkerOpacity = trackFrameType.GetMethod("OpponentMarkerOpacity", BindingFlags.NonPublic | BindingFlags.Static);
+        Type trackMapType = plugin.GetType("User.IRacingRadarPlugin.TrackMapGeometry", true);
+        MethodInfo displayedOpponentDistance = trackMapType.GetMethod("CalculateDisplayedOpponentDistance",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        object greenFrame = emptyTrackFrame.Invoke(null, new object[] { 10.5, 1.75, 100.0 });
+        object redFrame = emptyTrackFrame.Invoke(null, new object[] { 10.5, 3.5, 100.0 });
+        object halfScaleFrame = emptyTrackFrame.Invoke(null, new object[] { 10.5, 1.75, 50.0 });
+        double greenWidth = (double)trackFrameType.GetField("PlayerWidthPixels", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(greenFrame);
+        double greenLength = (double)trackFrameType.GetField("PlayerLengthPixels", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(greenFrame);
+        double redWidth = (double)trackFrameType.GetField("PlayerWidthPixels", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(redFrame);
+        double redLength = (double)trackFrameType.GetField("PlayerLengthPixels", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(redFrame);
+        double halfLength = (double)trackFrameType.GetField("PlayerLengthPixels", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(halfScaleFrame);
+        bool markerGeometryPass = greenLength >= 24.0 && redLength > greenLength &&
+            greenLength >= 27.0 &&
+            Math.Abs(greenWidth / greenLength - 0.48) < 0.001 &&
+            Math.Abs(redWidth / redLength - 0.48) < 0.001 &&
+            Math.Abs(halfLength - greenLength * 0.5) < 0.001 &&
+            Math.Abs((double)opponentMarkerOpacity.Invoke(null, new object[] { 0.0, greenLength }) - 45.0) < 0.001 &&
+            Math.Abs((double)opponentMarkerOpacity.Invoke(null, new object[] { greenLength, greenLength }) - 100.0) < 0.001;
+        double mappedRearContact = (double)displayedOpponentDistance.Invoke(null,
+            new object[] { 4.5, 1.75, greenLength });
+        double mappedFrontContact = (double)displayedOpponentDistance.Invoke(null,
+            new object[] { -4.5, 1.75, greenLength });
+        double mappedRearGap = (double)displayedOpponentDistance.Invoke(null,
+            new object[] { 10.0, 1.75, greenLength });
+        double contactPixels = mappedRearContact * 1.75;
+        double displayedGapPixels = mappedRearGap * 1.75 - greenLength;
+        bool bodyGapMappingPass = Math.Abs(contactPixels - greenLength) < 0.001 &&
+            Math.Abs(mappedFrontContact + mappedRearContact) < 0.001 &&
+            Math.Abs(displayedGapPixels - (10.0 - 4.5) * 1.75) < 0.001;
+
+        object syntheticTrack = Activator.CreateInstance(trackMapType, true);
+        Type worldPointType = trackMapType.GetNestedType("WorldPoint", BindingFlags.NonPublic);
+        ConstructorInfo worldPointConstructor = worldPointType.GetConstructor(BindingFlags.NonPublic |
+            BindingFlags.Instance, null, new[] { typeof(double), typeof(double) }, null);
+        System.Collections.IList trackPoints = (System.Collections.IList)trackMapType
+            .GetField("points", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(syntheticTrack);
+        List<double> trackProgress = (List<double>)trackMapType
+            .GetField("recordedProgress", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(syntheticTrack);
+        List<double> trackCumulative = (List<double>)trackMapType
+            .GetField("cumulative", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(syntheticTrack);
+        double[,] syntheticPoints = { { 0, 0 }, { 100, 0 }, { 100, 100 }, { 0, 100 }, { 0, 10 } };
+        double[] syntheticProgress = { 0.02, 0.25, 0.50, 0.75, 0.98 };
+        double[] syntheticCumulative = { 0, 100, 200, 300, 390 };
+        for (int i = 0; i < syntheticProgress.Length; i++)
+        {
+            trackPoints.Add(worldPointConstructor.Invoke(new object[] { syntheticPoints[i, 0], syntheticPoints[i, 1] }));
+            trackProgress.Add(syntheticProgress[i]);
+            trackCumulative.Add(syntheticCumulative[i]);
+        }
+        trackMapType.GetField("totalLength", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(syntheticTrack, 400.0);
+        MethodInfo distanceAtProgress = trackMapType.GetMethod("DistanceAtProgress", BindingFlags.NonPublic | BindingFlags.Instance);
+        MethodInfo sampleAtDistance = trackMapType.GetMethod("SampleAtDistance", BindingFlags.NonPublic | BindingFlags.Instance);
+        double beforeFinishDistance = (double)distanceAtProgress.Invoke(syntheticTrack, new object[] { 0.99 });
+        double afterFinishDistance = (double)distanceAtProgress.Invoke(syntheticTrack, new object[] { 0.01 });
+        object beforeFinish = sampleAtDistance.Invoke(syntheticTrack, new object[] { beforeFinishDistance });
+        object afterFinish = sampleAtDistance.Invoke(syntheticTrack, new object[] { afterFinishDistance });
+        double beforeX = (double)worldPointType.GetField("X", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(beforeFinish);
+        double beforeZ = (double)worldPointType.GetField("Z", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(beforeFinish);
+        double afterX = (double)worldPointType.GetField("X", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(afterFinish);
+        double afterZ = (double)worldPointType.GetField("Z", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(afterFinish);
+        bool finishLineContinuityPass = beforeFinishDistance < afterFinishDistance &&
+            Math.Sqrt((afterX - beforeX) * (afterX - beforeX) + (afterZ - beforeZ) * (afterZ - beforeZ)) < 6.0;
+
+        settingsType.GetProperty("DynamicRadarRangeEnabled").GetSetMethod(true).Invoke(settings, new object[] { true });
+        settingsType.GetProperty("RadarRangeMeters").GetSetMethod(true).Invoke(settings, new object[] { 70.0 });
+        settingsType.GetProperty("DynamicRadarRangeMinimumMeters").GetSetMethod(true).Invoke(settings, new object[] { 35.0 });
+        settingsType.GetProperty("NearDistanceMeters").GetSetMethod(true).Invoke(settings, new object[] { 20.0 });
+        MethodInfo effectiveRange = pluginType.GetMethod("CalculateEffectiveRadarRange", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo smoothTrackScale = pluginType.GetMethod("SmoothTrackScale", BindingFlags.NonPublic | BindingFlags.Static);
+        double nearRange = (double)effectiveRange.Invoke(null, new object[] { settings, 20.0 });
+        double middleRange = (double)effectiveRange.Invoke(null, new object[] { settings, 26.0 });
+        double farRange = (double)effectiveRange.Invoke(null, new object[] { settings, 32.0 });
+        double oneFrameScale = (double)smoothTrackScale.Invoke(null, new object[] { 1.75, 3.5, 0.016 });
+        bool fieldOfViewTransitionPass = Math.Abs(nearRange - 35.0) < 0.001 &&
+            Math.Abs(middleRange - 52.5) < 0.001 && Math.Abs(farRange - 70.0) < 0.001 &&
+            oneFrameScale > 1.75 && oneFrameScale < 3.5;
+
         Console.WriteLine(pass ? "PASS synthetic radar positions" : "FAIL synthetic radar positions");
         Console.WriteLine(smoothPass ? "PASS side position smoothing" : "FAIL side position smoothing");
         Console.WriteLine(transitionPass ? "PASS green-to-red transition" : "FAIL green-to-red transition");
@@ -211,7 +298,12 @@ internal static class RadarSyntheticTest
         Console.WriteLine(distantMatrixPass ? "PASS 200-1000m stale-gap stress matrix in all display modes" : "FAIL 200-1000m stale-gap stress matrix in all display modes");
         Console.WriteLine(radarOpacityPass ? "PASS distance/time radar opacity" : "FAIL distance/time radar opacity");
         Console.WriteLine(catchEstimatePass ? "PASS front catch-time estimate" : "FAIL front catch-time estimate");
-        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && qualifyingSessionPass && staleGapPass && fieldSpreadPass && distantMatrixPass && radarOpacityPass && catchEstimatePass ? 0 : 2;
+        Console.WriteLine(greenPredictionPass ? "PASS green-only overtake prediction" : "FAIL green-only overtake prediction");
+        Console.WriteLine(markerGeometryPass ? "PASS unified readable vehicle geometry and close-overlap fade" : "FAIL vehicle geometry or overlap fade");
+        Console.WriteLine(fieldOfViewTransitionPass ? "PASS smooth field-of-view and map-scale transition" : "FAIL field-of-view or map-scale transition");
+        Console.WriteLine(bodyGapMappingPass ? "PASS physical body-gap marker mapping" : "FAIL physical body-gap marker mapping");
+        Console.WriteLine(finishLineContinuityPass ? "PASS finish-line and irregular-progress continuity" : "FAIL finish-line continuity");
+        return pass && smoothPass && transitionPass && motionPass && noneModePass && greenArcSwitchPass && qualifyingSessionPass && staleGapPass && fieldSpreadPass && distantMatrixPass && radarOpacityPass && catchEstimatePass && greenPredictionPass && markerGeometryPass && fieldOfViewTransitionPass && bodyGapMappingPass && finishLineContinuityPass ? 0 : 2;
     }
 
     private static void AddPit(FakeStatus data, double meters)

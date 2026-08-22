@@ -7,12 +7,15 @@ namespace User.IRacingRadarPlugin
     internal sealed class RadarSettings
     {
         public double RadarRangeMeters { get; private set; }
+        public bool DynamicRadarRangeEnabled { get; private set; }
+        public double DynamicRadarRangeMinimumMeters { get; private set; }
         public double NearDistanceMeters { get; private set; }
         public double TimeAlertSeconds { get; private set; }
         public double RadarFadeBandPercent { get; private set; }
         public bool FrontGreenArcEnabled { get; private set; }
         public bool RearGreenArcEnabled { get; private set; }
         public bool CatchEstimateEnabled { get; private set; }
+        public bool OvertakePredictionEnabled { get; private set; }
         public bool HideInQualifying { get; private set; }
         public bool TrackBackgroundEnabled { get; private set; }
         public bool TrackBackgroundAlwaysVisible { get; private set; }
@@ -28,12 +31,15 @@ namespace User.IRacingRadarPlugin
             return new RadarSettings
             {
                 RadarRangeMeters = 70.0,
+                DynamicRadarRangeEnabled = false,
+                DynamicRadarRangeMinimumMeters = 35.0,
                 NearDistanceMeters = 20.0,
                 TimeAlertSeconds = 0.7,
                 RadarFadeBandPercent = 15.0,
                 FrontGreenArcEnabled = true,
                 RearGreenArcEnabled = true,
                 CatchEstimateEnabled = true,
+                OvertakePredictionEnabled = true,
                 HideInQualifying = true,
                 TrackBackgroundEnabled = true,
                 TrackBackgroundAlwaysVisible = false,
@@ -82,6 +88,16 @@ namespace User.IRacingRadarPlugin
                     value.CatchEstimateEnabled = ParseBoolean(text, value.CatchEstimateEnabled);
                     continue;
                 }
+                if (key.Equals("DynamicRadarRangeEnabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.DynamicRadarRangeEnabled = ParseBoolean(text, value.DynamicRadarRangeEnabled);
+                    continue;
+                }
+                if (key.Equals("OvertakePredictionEnabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.OvertakePredictionEnabled = ParseBoolean(text, value.OvertakePredictionEnabled);
+                    continue;
+                }
                 if (key.Equals("HideInQualifying", StringComparison.OrdinalIgnoreCase))
                 {
                     value.HideInQualifying = ParseBoolean(text, value.HideInQualifying);
@@ -105,6 +121,8 @@ namespace User.IRacingRadarPlugin
 
                 if (key.Equals("RadarRangeMeters", StringComparison.OrdinalIgnoreCase))
                     value.RadarRangeMeters = Clamp(parsed, 5.0, 200.0);
+                else if (key.Equals("DynamicRadarRangeMinimumMeters", StringComparison.OrdinalIgnoreCase))
+                    value.DynamicRadarRangeMinimumMeters = Clamp(parsed, 5.0, 200.0);
                 else if (key.Equals("NearDistanceMeters", StringComparison.OrdinalIgnoreCase))
                     value.NearDistanceMeters = Clamp(parsed, 1.0, 100.0);
                 else if (key.Equals("TimeAlertSeconds", StringComparison.OrdinalIgnoreCase))
@@ -124,6 +142,8 @@ namespace User.IRacingRadarPlugin
             }
 
             value.NearDistanceMeters = Math.Min(value.NearDistanceMeters, value.RadarRangeMeters);
+            value.DynamicRadarRangeMinimumMeters = Math.Min(value.DynamicRadarRangeMinimumMeters,
+                value.RadarRangeMeters);
             return value;
         }
 

@@ -34,10 +34,13 @@ namespace IRacingRadarConfigurator
         private readonly string preferencesPath;
         private readonly ComboBox displayMode = new ComboBox();
         private readonly NumericUpDown range = new NumericUpDown();
+        private readonly CheckBox dynamicRange = new CheckBox();
+        private readonly NumericUpDown dynamicRangeMinimum = new NumericUpDown();
         private readonly NumericUpDown near = new NumericUpDown();
         private readonly CheckBox frontArc = new CheckBox();
         private readonly CheckBox rearArc = new CheckBox();
         private readonly CheckBox catchEstimate = new CheckBox();
+        private readonly CheckBox overtakePrediction = new CheckBox();
         private readonly CheckBox hideInQualifying = new CheckBox();
         private readonly CheckBox trackBackground = new CheckBox();
         private readonly CheckBox trackAlwaysVisible = new CheckBox();
@@ -69,8 +72,8 @@ namespace IRacingRadarConfigurator
             this.preferencesPath = preferencesPath;
             Text = "iRacing Radar 配置工具 / Configurator";
             StartPosition = FormStartPosition.CenterScreen;
-            MinimumSize = new Size(1120, 940);
-            Size = new Size(1240, 1015);
+            MinimumSize = new Size(1120, 1010);
+            Size = new Size(1240, 1085);
             BackColor = Color.FromArgb(17, 21, 28);
             ForeColor = Color.FromArgb(235, 240, 247);
             Font = new Font("Segoe UI", 9.5f);
@@ -118,6 +121,10 @@ namespace IRacingRadarConfigurator
 
             ConfigureNumber(range, 5, 200, 70, 0, 1, " m");
             fields.Controls.Add(Field("距离提示范围 / Radar range", "车辆进入该距离后开始提示。", range));
+            ConfigureCheck(dynamicRange, "按警示阶段动态调整范围 / Dynamic range by alert stage");
+            fields.Controls.Add(dynamicRange);
+            ConfigureNumber(dynamicRangeMinimum, 5, 200, 35, 0, 1, " m");
+            fields.Controls.Add(Field("红色警示最小范围 / Red-zone minimum", "绿色阶段用完整范围；进入红色警示时平滑缩小到该值。", dynamicRangeMinimum));
             ConfigureNumber(time, 0.1m, 30, 0.7m, 1, 0.1m, " s");
             fields.Controls.Add(Field("相对时间提示范围 / Time gap", "仅在“仅时间”或“距离和时间”模式下参与提示判断。", time));
             ConfigureNumber(near, 1, 100, 20, 0, 1, " m");
@@ -130,8 +137,10 @@ namespace IRacingRadarConfigurator
             fields.Controls.Add(frontArc);
             ConfigureCheck(rearArc, "显示后方绿色提示条 / Rear green arc");
             fields.Controls.Add(rearArc);
-            ConfigureCheck(catchEstimate, "显示预计追上时间 / Catch-time estimate");
+            ConfigureCheck(catchEstimate, "显示预计追上信息 / Catch prediction");
             fields.Controls.Add(catchEstimate);
+            ConfigureCheck(overtakePrediction, "在赛道上显示预计追上点 / Show catch point on track");
+            fields.Controls.Add(overtakePrediction);
             ConfigureCheck(hideInQualifying, "排位赛时隐藏雷达 / Hide during qualifying");
             fields.Controls.Add(hideInQualifying);
             ConfigureCheck(trackBackground, "\u663e\u793a\u5c40\u90e8\u8d5b\u9053\u80cc\u666f / Local track background");
@@ -216,12 +225,22 @@ namespace IRacingRadarConfigurator
         {
             EventHandler changed = delegate { if (!loading) UpdatePreview(); };
             displayMode.SelectedIndexChanged += changed;
-            range.ValueChanged += delegate { if (!loading) { near.Maximum = Math.Min(100, range.Value); if (near.Value > near.Maximum) near.Value = near.Maximum; UpdatePreview(); } };
+            range.ValueChanged += delegate { if (!loading) { near.Maximum = Math.Min(100, range.Value); if (near.Value > near.Maximum) near.Value = near.Maximum; dynamicRangeMinimum.Maximum = range.Value; if (dynamicRangeMinimum.Value > dynamicRangeMinimum.Maximum) dynamicRangeMinimum.Value = dynamicRangeMinimum.Maximum; UpdatePreview(); } };
+            dynamicRange.CheckedChanged += delegate { if (!loading) { dynamicRangeMinimum.Enabled = dynamicRange.Checked; UpdatePreview(); } };
+            dynamicRangeMinimum.ValueChanged += changed;
             near.ValueChanged += changed; time.ValueChanged += changed; fade.ValueChanged += changed;
             fontSize.ValueChanged += changed; opacity.ValueChanged += changed;
             frontArc.CheckedChanged += delegate { if (!loading) OnGreenArcSettingChanged(); };
             rearArc.CheckedChanged += delegate { if (!loading) OnGreenArcSettingChanged(); };
-            catchEstimate.CheckedChanged += delegate { if (!loading) UpdatePreview(); };
+            catchEstimate.CheckedChanged += delegate
+            {
+                if (!loading)
+                {
+                    overtakePrediction.Enabled = catchEstimate.Checked;
+                    UpdatePreview();
+                }
+            };
+            overtakePrediction.CheckedChanged += delegate { if (!loading) UpdatePreview(); };
             hideInQualifying.CheckedChanged += delegate { if (!loading) UpdatePreview(); };
             scenario.SelectedIndexChanged += changed; previewDistance.ValueChanged += changed;
             trackBackground.CheckedChanged += delegate
@@ -322,11 +341,17 @@ namespace IRacingRadarConfigurator
             {
                 SelectValue(displayMode, settings.DisplayMode);
                 range.Value = DecimalValue(range, settings.RadarRangeMeters);
+                dynamicRangeMinimum.Maximum = range.Value;
+                dynamicRange.Checked = settings.DynamicRadarRangeEnabled;
+                dynamicRangeMinimum.Value = DecimalValue(dynamicRangeMinimum, settings.DynamicRadarRangeMinimumMeters);
+                dynamicRangeMinimum.Enabled = settings.DynamicRadarRangeEnabled;
                 near.Maximum = Math.Min(100, range.Value);
                 near.Value = DecimalValue(near, settings.NearDistanceMeters);
                 frontArc.Checked = settings.FrontGreenArcEnabled;
                 rearArc.Checked = settings.RearGreenArcEnabled;
                 catchEstimate.Checked = settings.CatchEstimateEnabled;
+                overtakePrediction.Checked = settings.OvertakePredictionEnabled;
+                overtakePrediction.Enabled = settings.CatchEstimateEnabled;
                 hideInQualifying.Checked = settings.HideInQualifying;
                 time.Value = DecimalValue(time, settings.TimeAlertSeconds);
                 fade.Value = DecimalValue(fade, settings.RadarFadeBandPercent);
@@ -357,10 +382,13 @@ namespace IRacingRadarConfigurator
             {
                 DisplayMode = mode == null ? "Both" : mode.Value,
                 RadarRangeMeters = (double)range.Value,
+                DynamicRadarRangeEnabled = dynamicRange.Checked,
+                DynamicRadarRangeMinimumMeters = (double)dynamicRangeMinimum.Value,
                 NearDistanceMeters = (double)near.Value,
                 FrontGreenArcEnabled = frontArc.Checked,
                 RearGreenArcEnabled = rearArc.Checked,
                 CatchEstimateEnabled = catchEstimate.Checked,
+                OvertakePredictionEnabled = overtakePrediction.Checked,
                 HideInQualifying = hideInQualifying.Checked,
                 TimeAlertSeconds = (double)time.Value,
                 RadarFadeBandPercent = (double)fade.Value,

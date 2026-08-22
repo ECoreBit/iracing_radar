@@ -140,10 +140,8 @@ namespace IRacingRadarConfigurator
             if (radarOpacity <= 0.1)
                 return;
 
-            DrawRoundedRectangle(g, new RectangleF(81, 1, 258, 258), "#52101620",
-                62 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,
-                129, "#88DDE6EE", 2);
-            DrawReferenceTrack(g, radarOpacity);
+            DrawRadarBackground(g, radarOpacity);
+            DrawReferenceTrack(g, radarOpacity, front && farVisible && !nearVisible);
 
             if (farVisible)
             {
@@ -203,35 +201,36 @@ namespace IRacingRadarConfigurator
         private void DrawTrackOnly(Graphics g)
         {
             const double radarOpacity = 100.0;
-            DrawRoundedRectangle(g, new RectangleF(81, 1, 258, 258), "#52101620",
-                62 * Settings.OverlayOpacity / 100.0, 129, "#88DDE6EE", 2);
-            DrawReferenceTrack(g, radarOpacity);
+            DrawRadarBackground(g, radarOpacity);
+            DrawReferenceTrack(g, radarOpacity, false);
             DrawPlayer(g, radarOpacity);
+        }
+
+        private void DrawRadarBackground(Graphics g, double radarOpacity)
+        {
+            double opacity = Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0;
+            DrawRoundedRectangle(g, new RectangleF(84, 4, 252, 252), "#52101620",
+                62 * opacity, 126, "#00DDE6EE", 0);
+            DrawResource(g, "RadarEdgeGlow", new RectangleF(80, 0, 260, 260), 100 * opacity);
         }
 
         private void DrawPlayer(Graphics g, double radarOpacity)
         {
-            float markerScale = (float)Math.Max(0.5, Math.Min(2.0,
-                Settings.PlayerMarkerScalePercent / 100.0));
-            float playerWidth = 12f * markerScale;
-            float playerLength = 30f * markerScale;
-            DrawRoundedRectangle(g, new RectangleF(210 - playerWidth / 2f, 130 - playerLength / 2f,
-                playerWidth, playerLength), "#FF727E8A",
-                100 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,
-                7, "#B8E8EDF2", 1);
+            DrawVehicleMarker(g, new PointF(210, 130), 0, false,
+                100 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0);
         }
 
-        private void DrawReferenceTrack(Graphics g, double radarOpacity)
+        private void DrawReferenceTrack(Graphics g, double radarOpacity, bool showPrediction)
         {
             if (!Settings.TrackBackgroundEnabled) return;
-            float pixelsPerMeter = (float)Settings.TrackScalePixelsPerMeter;
+            float pixelsPerMeter = EffectiveTrackPixelsPerMeter();
             float trackScale = pixelsPerMeter / 8.75f;
             float roadWidth = Math.Max(2f, (float)Settings.ReferenceTrackWidthMeters * pixelsPerMeter);
             GraphicsState state = g.Save();
             using (GraphicsPath clip = new GraphicsPath())
             using (GraphicsPath centerLine = new GraphicsPath())
             {
-                clip.AddEllipse(new RectangleF(81, 1, 258, 258));
+                clip.AddEllipse(new RectangleF(84, 4, 252, 252));
                 g.SetClip(clip, CombineMode.Intersect);
                 centerLine.AddBezier(ScaleTrackPoint(186, 270, trackScale), ScaleTrackPoint(188, 220, trackScale),
                     ScaleTrackPoint(215, 175, trackScale), ScaleTrackPoint(207, 130, trackScale));
@@ -245,6 +244,36 @@ namespace IRacingRadarConfigurator
                 {
                     roadPen.StartCap = roadPen.EndCap = LineCap.Round;
                     g.DrawPath(roadPen, centerLine);
+                }
+                if (showPrediction && Settings.CatchEstimateEnabled &&
+                    Settings.OvertakePredictionEnabled && Closing)
+                {
+                    PointF point = ScaleTrackPoint(208, 92, trackScale);
+                    using (Brush fill = new SolidBrush(Color.FromArgb(ScaleAlpha(255, opacity), 77, 242, 139)))
+                    {
+                        g.FillRectangle(fill, point.X - 11, point.Y - 1.5f, 22, 3);
+                    }
+                }
+                if (Scenario == PreviewScenario.Front || Scenario == PreviewScenario.Rear)
+                {
+                    bool front = Scenario == PreviewScenario.Front;
+                    PointF directionPoint = front
+                        ? ScaleTrackPoint(207, 84, trackScale)
+                        : ScaleTrackPoint(186, 228, trackScale);
+                    float markerWidth;
+                    float markerLength;
+                    VehicleMarkerSize(out markerWidth, out markerLength);
+                    double displayMeters = DisplayedOpponentDistance(
+                        front ? -Math.Abs(DistanceMeters) : Math.Abs(DistanceMeters),
+                        pixelsPerMeter, markerLength);
+                    float targetRadius = (float)(Math.Abs(displayMeters) * pixelsPerMeter);
+                    float dx = directionPoint.X - 210f;
+                    float dy = directionPoint.Y - 130f;
+                    float directionLength = Math.Max(0.01f, (float)Math.Sqrt(dx * dx + dy * dy));
+                    PointF point = new PointF(210f + dx / directionLength * targetRadius,
+                        130f + dy / directionLength * targetRadius);
+                    DrawVehicleMarker(g, point, Scenario == PreviewScenario.Front ? -4f : 8f,
+                        true, opacity);
                 }
             }
             g.Restore(state);
@@ -268,12 +297,8 @@ namespace IRacingRadarConfigurator
             float markerX = left ? 167 : 235;
             FillRectangle(g, new RectangleF(railX, 34, 2, 192), "#80D51B2A",
                 30 * sideOpacity / 100.0 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0);
-            float markerWidth = 18f;
-            float markerLength = 42f;
-            DrawRoundedRectangle(g, new RectangleF(markerX + 9 - markerWidth / 2f,
-                top + 21 - markerLength / 2f, markerWidth, markerLength), "#F0E31B2C",
-                92 * sideOpacity / 100.0 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0,
-                7, "#B8FF7A82", 1);
+            DrawVehicleMarker(g, new PointF(markerX + 9, top + 21), 0, true,
+                92 * sideOpacity / 100.0 * Settings.OverlayOpacity / 100.0 * radarOpacity / 100.0);
         }
 
         private void UpdateTransitionState(bool front, double nearTarget, double farTarget,
@@ -358,6 +383,58 @@ namespace IRacingRadarConfigurator
                         g.DrawPath(pen, path);
                 }
             }
+        }
+
+        private float EffectiveTrackPixelsPerMeter()
+        {
+            double effectiveRange = Settings.RadarRangeMeters;
+            if (Settings.DynamicRadarRangeEnabled)
+            {
+                double distance = Math.Abs(DistanceMeters);
+                double progress = Math.Max(0.0, Math.Min(1.0,
+                    (distance - Settings.NearDistanceMeters) / 12.0));
+                progress = progress * progress * (3.0 - 2.0 * progress);
+                effectiveRange = Settings.DynamicRadarRangeMinimumMeters +
+                    (Settings.RadarRangeMeters - Settings.DynamicRadarRangeMinimumMeters) * progress;
+            }
+            return (float)(Settings.TrackScalePixelsPerMeter * 0.5 *
+                Settings.RadarRangeMeters / Math.Max(1.0, effectiveRange));
+        }
+
+        private void VehicleMarkerSize(out float width, out float length)
+        {
+            float pixelsPerMeter = EffectiveTrackPixelsPerMeter();
+            float zoom = Math.Max(0f, Math.Min(1f, (pixelsPerMeter - 1.75f) / 1.75f));
+            float markerScale = (float)Math.Max(0.5, Math.Min(2.0,
+                Settings.PlayerMarkerScalePercent / 100.0));
+            length = (27f + 7f * zoom) * markerScale;
+            width = length * 0.48f;
+        }
+
+        private static double DisplayedOpponentDistance(double relativeMeters,
+            double pixelsPerMeter, double markerLengthPixels)
+        {
+            const double contactCenterDistanceMeters = 4.5;
+            if (pixelsPerMeter <= 0.0 || markerLengthPixels <= 0.0) return relativeMeters;
+            double physicalGapMeters = Math.Max(0.0,
+                Math.Abs(relativeMeters) - contactCenterDistanceMeters);
+            double displayedMagnitude = markerLengthPixels / pixelsPerMeter + physicalGapMeters;
+            return relativeMeters < 0.0 ? -displayedMagnitude : displayedMagnitude;
+        }
+
+        private void DrawVehicleMarker(Graphics g, PointF center, float rotation, bool red,
+            double opacity)
+        {
+            float width;
+            float length;
+            VehicleMarkerSize(out width, out length);
+            GraphicsState state = g.Save();
+            g.TranslateTransform(center.X, center.Y);
+            g.RotateTransform(rotation);
+            DrawRoundedRectangle(g, new RectangleF(-width / 2f, -length / 2f, width, length),
+                red ? "#F0E31B2C" : "#FF34AAE0", opacity, Math.Max(0.8f, width * 0.17f),
+                red ? "#B8FF7A82" : "#DCCAF4FF", 1);
+            g.Restore(state);
         }
 
         private static GraphicsPath RoundedRectanglePath(RectangleF rectangle, float radius)

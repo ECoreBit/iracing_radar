@@ -89,6 +89,8 @@ SimHub\
 
 - **显示模式**：选择前后车辆显示距离、相对时间、两者同时显示，或隐藏数值。隐藏数值不会关闭雷达图形警示。
 - **距离提示范围**：车辆进入设定距离后开始显示雷达提示。
+- **按警示阶段动态调整范围**：开启后，绿色提示阶段使用完整的“距离提示范围”；车辆进入红色警示距离时，雷达平滑缩小到“红色警示最小范围”。前、后车分别判断，不会相互抢占提示。
+- **赛道背景同步缩放与车辆位置**：动态范围开启时，局部赛道会同步缩放；地图可视距离保持为当前红绿提示范围的两倍。已触发的前车和后车会以与本车相同的车辆图标显示在赛道中心线上，图标尺寸随地图比例同步换算，避免车辆尚未接触就视觉重叠；图标只表示沿赛道的前后位置，不表示横向位置。
 - **相对时间提示范围**：根据前后车辆与本车的相对时间触发提示，仅在对应显示模式下参与判断。
 - **红色警示距离**：车辆进入近距离范围后，绿色提示逐渐切换为红色警示。
 - **边缘渐显比例**：控制车辆刚进入或离开提示范围时雷达透明度的变化区间。
@@ -100,6 +102,7 @@ SimHub\
 - **数值字体大小**控制前后车辆距离和相对时间文字的大小。
 - **整体透明度**控制雷达在游戏画面上的可见程度。
 - **预计追上时间**开启后，当本车快速接近前车时，前方数值下方会显示 `Catch x.xs`。该数值根据当前距离和接近速度估算，表示预计追上前车的时间，不代表一定能完成超车。
+- **在赛道上显示预计追上点**开启后，局部赛道上的绿色横线表示按当前车速和接近速度预计追上前车的位置。横线与赛道方向垂直，只在前方绿色提示阶段显示；进入红色警示、并排或预测点超出局部赛道视野时会隐藏。它会随着刹车、加速和对手速度变化而更新，仅作为趋势参考。
 - **局部赛道背景**开启后，会读取 SimHub 当前赛道的地图记录，并以连续实心赛道带显示附近的参考轨迹；没有可用地图记录时自动隐藏。
 - **始终显示赛道和雷达**开启后，即使附近没有车辆也会保留赛道和雷达；关闭后，仅在车辆靠近并触发雷达时显示。
 - **赛道缩放比例**可设置为 `2–12 px/m`。数值越小，可看到的参考赛道路段越长；本车标记保持较大的清晰尺寸，不随赛道比例缩小。
@@ -216,6 +219,8 @@ Run **IRacingRadar.Configurator.exe** to manage every radar setting through the 
 
 - **Display mode**: show distance, relative time, both values, or no numeric values for front and rear cars. Hiding values does not disable graphical radar alerts.
 - **Radar range**: begins showing the radar when a car enters the selected distance.
+- **Dynamic range by alert stage**: when enabled, the full “Radar range” is used during the green alert stage. As a car enters the red warning zone, the radar smoothly shrinks to the “Red-zone minimum.” Front and rear cars are evaluated independently, so neither suppresses the other.
+- **Synchronized track scale and car position**: with dynamic range enabled, the local track map zooms with the current radar range and keeps twice the current alert distance visible. Triggered front and rear opponents use the same car icon on the track centerline. Their size follows the active map scale to avoid visual overlap before the cars physically meet. Icons show fore/aft position along the track only, not lateral position.
 - **Time-gap range**: triggers alerts from the relative time to a front or rear car when the selected display mode uses time.
 - **Near-warning distance**: gradually changes a front or rear alert from green to red at close range.
 - **Fade band**: controls the portion of the alert-range boundary used to fade the radar in or out.
@@ -227,6 +232,7 @@ Run **IRacingRadar.Configurator.exe** to manage every radar setting through the 
 - **Label size** controls the front/rear distance and relative-time text size.
 - **Overlay opacity** controls how strongly the radar appears over the game.
 - When **catch-time estimate** is enabled and the player is rapidly closing on a front car, `Catch x.xs` appears below the front values. It estimates the time to catch the car from the current distance and closing speed; it does not guarantee a completed overtake.
+- Enable **Show catch point on track** to display a green line perpendicular to the local track at the calculated front-car catch position. It is shown only during the front green-alert stage and hides in the red-warning or side-by-side stage, or when it falls outside the local-map view. It updates as either car brakes or accelerates and is only a trend reference.
 
 - **Local track background** reads SimHub's current track-map record and draws the nearby reference as a continuous solid ribbon. It hides automatically when no map record is available.
 - Enable **Always show track and radar** to keep them visible without nearby cars. Disable it to show them only when an approaching car triggers the radar.

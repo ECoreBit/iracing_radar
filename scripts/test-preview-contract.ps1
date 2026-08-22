@@ -10,14 +10,11 @@ if ($overlay.BaseWidth -ne 420 -or $overlay.BaseHeight -ne 260) {
 }
 
 $items = @{
-    'Radar circle outline' = '81,1,258,258,#52101620'
+    'Radar circle outline' = '84,4,252,252,#52101620'
     'Center spine' = '209,8,2,244,#66D8E1E9'
     'Front range tick' = '201,28,18,2,#5CD8E1E9'
     'Center range tick' = '199,129,22,2,#78E4EBF2'
     'Rear range tick' = '201,230,18,2,#5CD8E1E9'
-    'Player marker' = '201,109,18,42,#FF727E8A'
-    'Left opponent marker' = '167,109,18,42,#F0E31B2C'
-    'Right opponent marker' = '235,109,18,42,#F0E31B2C'
     'Left position rail' = '175,34,2,192,#80D51B2A'
     'Right position rail' = '243,34,2,192,#80D51B2A'
 }
@@ -38,30 +35,63 @@ foreach ($name in $items.Keys) {
 }
 
 $circle = $overlay.Screens[0].Items | Where-Object Name -eq 'Radar circle outline' | Select-Object -First 1
-if ($circle.BorderStyle.RadiusTopLeft -ne 129 -or $circle.BorderStyle.BorderTop -ne 2 -or
-    $circle.BorderStyle.BorderColor -ne '#88DDE6EE') { throw 'Radar circle style contract changed.' }
-$player = $overlay.Screens[0].Items | Where-Object Name -eq 'Player marker' | Select-Object -First 1
-if ($player.BorderStyle.RadiusTopLeft -ne 7 -or $player.BorderStyle.BorderColor -ne '#B8E8EDF2') {
-    throw 'Player marker style contract changed.'
+if ($circle.BorderStyle.BorderTop -ne 0 -or $circle.BorderStyle.BorderColor -ne '#00DDE6EE') {
+    throw 'Radar circle base must not use a hard border.'
 }
-if ($player.Bindings.Width.Formula.Expression -notmatch 'PlayerMarkerScalePercent' -or
-    $player.Bindings.Height.Formula.Expression -notmatch 'PlayerMarkerScalePercent') {
-    throw 'Player marker is not bound to the configurable size percentage.'
+$softEdge = $overlay.Screens[0].Items | Where-Object Name -eq 'Radar feathered edge' | Select-Object -First 1
+if (-not $softEdge -or $softEdge.Image -ne 'RadarEdgeGlow' -or
+    $softEdge.Bindings.Visible.Formula.Expression -notmatch 'RadarVisible') {
+    throw 'Radar feathered edge is incomplete.'
+}
+$player = $overlay.Screens[0].Items | Where-Object Name -eq 'Player marker' | Select-Object -First 1
+$prediction = $overlay.Screens[0].Items | Where-Object Name -eq 'Predicted overtake point' | Select-Object -First 1
+if (-not $prediction -or $prediction.BackgroundColor -ne '#FF4DF28B' -or
+    $prediction.Width -ne 22 -or $prediction.Height -ne 3 -or
+    $prediction.Bindings.Visible.Formula.Expression -notmatch 'OvertakePredictionVisible') {
+    throw 'Predicted overtake point is missing from the Overlay.'
+}
+foreach ($name in @('Front opponent map point', 'Rear opponent map point')) {
+    $mapPoint = $overlay.Screens[0].Items | Where-Object Name -eq $name | Select-Object -First 1
+    if (-not $mapPoint -or $mapPoint.Image -ne 'VehicleMarkerRed' -or
+        $mapPoint.Bindings.Visible.Formula.Expression -notmatch 'OpponentMapVisible' -or
+        $mapPoint.Bindings.Rotation.Formula.Expression -notmatch 'OpponentMapRotation' -or
+        $mapPoint.Bindings.Opacity.Formula.Expression -notmatch 'OpponentMapOpacity') {
+        throw "Opponent map point is missing from the Overlay: $name"
+    }
+}
+if ($player.Image -ne 'VehicleMarkerPlayer' -or
+    $player.Bindings.Width.Formula.Expression -notmatch 'TrackPlayerWidth' -or
+    $player.Bindings.Width.Formula.Expression -match 'PlayerMarkerScalePercent' -or
+    $player.Bindings.Height.Formula.Expression -notmatch 'TrackPlayerLength') {
+    throw 'Player marker does not use the shared final dimensions and player resource.'
 }
 $opponent = $overlay.Screens[0].Items | Where-Object Name -eq 'Left opponent marker' | Select-Object -First 1
-if ($opponent.BorderStyle.RadiusTopLeft -ne 7 -or $opponent.BorderStyle.BorderColor -ne '#B8FF7A82') {
-    throw 'Opponent marker style contract changed.'
+foreach ($name in @('Left opponent marker', 'Right opponent marker')) {
+    $opponent = $overlay.Screens[0].Items | Where-Object Name -eq $name | Select-Object -First 1
+    if ($opponent.Image -ne 'VehicleMarkerRed' -or
+        $opponent.Bindings.Width.Formula.Expression -notmatch 'TrackPlayerWidth' -or
+        $opponent.Bindings.Width.Formula.Expression -match 'PlayerMarkerScalePercent' -or
+        $opponent.Bindings.Height.Formula.Expression -notmatch 'TrackPlayerLength') {
+        throw "${name} does not use the shared final dimensions."
+    }
+}
+$playerIndex = [Array]::IndexOf(@($overlay.Screens[0].Items), $player)
+$frontMap = $overlay.Screens[0].Items | Where-Object Name -eq 'Front opponent map point' | Select-Object -First 1
+if ($playerIndex -le [Array]::IndexOf(@($overlay.Screens[0].Items), $frontMap)) {
+    throw 'Player marker must render above close map opponents.'
 }
 
 $patterns = @(
-    'RectangleF\(81, 1, 258, 258\), "#52101620"',
+    'RectangleF\(84, 4, 252, 252\), "#52101620"',
     'RectangleF\(209, 8, 2, 244\), "#66D8E1E9"',
     'RectangleF\(199, 129, 22, 2\), "#78E4EBF2"',
-    'playerWidth = 12f',
-    'DrawReferenceTrack\(g, radarOpacity\)',
-    '129, "#88DDE6EE", 2',
-    '7, "#B8E8EDF2", 1',
-    '7, "#B8FF7A82", 1',
+    'VehicleMarkerSize\(',
+    'DrawVehicleMarker\(',
+    'DrawReferenceTrack\(g, radarOpacity, front && farVisible && !nearVisible\)',
+    'showPrediction && Settings.CatchEstimateEnabled',
+    'OvertakePredictionEnabled',
+    'DrawRadarBackground\(g, radarOpacity\)',
+    'DrawResource\(g, "RadarEdgeGlow", new RectangleF\(80, 0, 260, 260\)',
     'farTextOpacity = \(100 - blend\) \* proximity',
     'textOpacity = blend \*'
 )
